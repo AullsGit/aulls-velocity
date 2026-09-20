@@ -38,3 +38,10 @@ medição; (2) igualar só a luma média cria silhuetas quando o sujeito está e
 de subtração de fundo cria halos -> desligado por defeito; (4) energia de movimento vem do conteúdo: clips calmos não
 chegam à agressividade da referência sem "inventar" efeitos (decisão do utilizador).
 Pendente: segmentador de pessoas em GPU (torch CUDA a instalar), depois relight/denoise/super-resolução com A/B.
+
+## Atualização — realce do sujeito e nitidez (2026-09-20, sessão 2, fim)
+Segmentador de pessoas DeepLabV3 em GPU com cache (`media/segment.py`); `--subject-enhance` (opt-in) levanta a luz do sujeito e
+escurece só o fundo (máscara erodida). A/B em 4 refs: brilho mais perto da referência em todas, fidelidade ±0.03, ganho visual modesto,
+resta contorno claro ténue (próximo: refinar a máscara com filtro guiado). Nitidez guiada pela referência no ciclo fechado
+(`post_sharp`, só nos contornos, só se o output for mais mole): 0.40->0.51 e 0.41->0.59, sem ruído amplificado a 200%.
+Bloqueio de hardware: GPU limitada a 10 W (limite 60 W) pelo modo do portátil (NitroSense); segmentação ~550 ms/frame até resolver.

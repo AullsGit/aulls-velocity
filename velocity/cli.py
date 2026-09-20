@@ -85,6 +85,9 @@ def cmd_make(a):
             if lk_o.saturation > 1 and not 0.85 <= lk_r.saturation / lk_o.saturation <= 1.15:
                 tl.post_sat = round(min(max(tl.post_sat * min(max(lk_r.saturation / lk_o.saturation, 0.6), 1.6), 0.6), 1.35), 3)
                 changes.append(f"post_sat={tl.post_sat}")
+            if lk_o.sharpness > 1 and lk_r.sharpness > 1 and lk_o.sharpness / lk_r.sharpness < 0.75:  # só sobe se estiver mais mole que a referência
+                tl.post_sharp = round(min(tl.post_sharp + 0.5 * (1.0 - lk_o.sharpness / lk_r.sharpness), 0.9), 3)
+                changes.append(f"post_sharp={tl.post_sharp}")
             if lk_o.contrast > 1 and not 0.85 <= lk_r.contrast / lk_o.contrast <= 1.15:
                 tl.post_contrast = round(min(max(tl.post_contrast * min(max(lk_r.contrast / lk_o.contrast, 0.6), 1.5), 0.75), 1.3), 3)
                 changes.append(f"post_contrast={tl.post_contrast}")
@@ -100,7 +103,7 @@ def cmd_make(a):
     log(f"execução (cortes planeados presentes no output): {rep['execution']}")
     log(f"fidelidade (ref vs output re-analisado): {rep['fidelity']}  componentes={rep['components']}")
     if a.report:
-        json.dump({"detector": det.__dict__, "match": [m.__dict__ | {"speed": None} for m in ms], "retime": info, "eval": rep, "effects_eval": fxrep, "fx_scale": tl.fx_scale, "post": [tl.post_gamma, tl.post_sat, tl.post_contrast]},
+        json.dump({"detector": det.__dict__, "match": [m.__dict__ | {"speed": None} for m in ms], "retime": info, "eval": rep, "effects_eval": fxrep, "fx_scale": tl.fx_scale, "post": [tl.post_gamma, tl.post_sat, tl.post_contrast, tl.post_sharp]},
                   open(a.report, "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
     return 0
 

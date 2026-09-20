@@ -66,6 +66,17 @@ def _fit_mask(mask: np.ndarray, W: int, H: int) -> np.ndarray:
     return r.astype(np.float32) / 255.0
 
 
+def _sharpen_luma(img: np.ndarray, amount: float) -> np.ndarray:
+    """Unsharp só na luminância e só onde há contorno (o ruído em zonas planas não é amplificado)."""
+    ycc = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+    y = ycc[..., 0].astype(np.float32)
+    sigma = max(0.8, 1.1 * img.shape[1] / 540.0)
+    detail = y - cv2.GaussianBlur(y, (0, 0), sigma)
+    w = np.clip(np.abs(detail) / 8.0, 0.0, 1.0)  # suprime micro-variações (ruído/blocos)
+    ycc[..., 0] = np.clip(y + amount * detail * w, 0, 255).astype(np.uint8)
+    return cv2.cvtColor(ycc, cv2.COLOR_YCrCb2RGB)
+
+
 def _enhance(out: np.ndarray, alpha: np.ndarray, clip: ClipUse) -> np.ndarray:
     """Melhoria LOCAL: sujeito e fundo recebem tratamentos diferentes, misturados pela máscara suave."""
     x = np.arange(256) / 255.0
@@ -189,6 +200,8 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
                         img = effects.apply(img, ev.type, amt, ev.intensity, "radial", f)
                 if post_lut is not None:
                     img = cv2.LUT(img, post_lut)
+                if tl.post_sharp > 0.02:
+                    img = _sharpen_luma(img, tl.post_sharp)
                 if abs(tl.post_sat - 1.0) > 0.02:
                     g = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
                     img = cv2.addWeighted(cv2.merge([g, g, g]), 1.0 - tl.post_sat, img, tl.post_sat, 0)

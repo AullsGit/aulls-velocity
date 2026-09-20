@@ -47,6 +47,7 @@ class Timeline(BaseModel):
     post_gamma: float = 1.0  # correção global de look (ciclo fechado), aplicada a todos os frames
     post_sat: float = 1.0
     post_contrast: float = 1.0
+    post_sharp: float = 0.0  # 0..0.9 nitidez global só nos contornos (ciclo fechado; só sobe se o output for mais mole que a referência)
     post_pivot: float = 110.0  # luma-alvo à volta da qual o contraste é escalado
     music_path: str | None = None
     music_offset_s: float = 0.0
