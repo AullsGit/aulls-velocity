@@ -56,7 +56,7 @@ def cmd_make(a):
     log(f"material: {len(clips)} clips, {sum(c.duration_s for c in clips):.1f}s no total")
     w = MatchWeights()
     ms = match(dna, clips, w)
-    tl, info = build_timeline(dna, clips, ms, size=_size(a.size), music_path=a.music, weights=w, zoom_gain=a.zoom_gain, fx=not a.no_fx, tone=a.tone, subject_enhance=a.subject_enhance)
+    tl, info = build_timeline(dna, clips, ms, size=_size(a.size), music_path=a.music, weights=w, zoom_gain=a.zoom_gain, fx=not a.no_fx, tone=a.tone, subject_enhance=a.subject_enhance, denoise=a.denoise, sr=a.sr)
     if not a.music and a.audio_ref and dna.audio.has_audio:
         tl.music_path, tl.music_offset_s = a.ref, 0.0  # sem música: usa o áudio da referência (cortes já coincidem com ele)
         info = {**info, "audio": "da referência"}
@@ -118,7 +118,7 @@ def main(argv=None):
     p.add_argument("--music"); p.add_argument("--out", required=True)
     p.add_argument("--size", default="540x960"); p.add_argument("--crf", type=int, default=18)
     p.add_argument("--audio-ref", action="store_true", help="sem --music, usa o áudio da referência"); p.add_argument("--zoom-gain", type=float, default=1.0); p.add_argument("--force", action="store_true")
-    p.add_argument("--no-fx", action="store_true", help="desliga os efeitos medidos na referência"); p.add_argument("--fx-iters", type=int, default=2); p.add_argument("--subject-enhance", action="store_true", help="EXPERIMENTAL: realce local do sujeito por máscara (halos com a máscara atual)"); p.add_argument("--tone", type=float, default=0.85, help="força do ajuste de tom (0-1) ao look da referência")
+    p.add_argument("--no-fx", action="store_true", help="desliga os efeitos medidos na referência"); p.add_argument("--fx-iters", type=int, default=2); p.add_argument("--sr", action="store_true", help="EXPERIMENTAL: super-resolução nos planos muito ampliados (lenta; melhor com a GPU sem limite de energia)"); p.add_argument("--denoise", type=float, default=0.5, help="redução de ruído temporal 0-1"); p.add_argument("--subject-enhance", action="store_true", help="EXPERIMENTAL: realce local do sujeito por máscara (halos com a máscara atual)"); p.add_argument("--tone", type=float, default=0.85, help="força do ajuste de tom (0-1) ao look da referência")
     p.add_argument("--report"); p.set_defaults(fn=cmd_make)
     a = ap.parse_args(argv)
     return a.fn(a) or 0

@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 
 from velocity.io.probe import probe
-from velocity.render import effects, fxstack
+from velocity.render import effects, fxstack, sr as srmod
 from velocity.schemas.edit_dna import Curve
 from velocity.schemas.timeline import ClipUse, Timeline, TimelineShot
 
@@ -28,7 +28,7 @@ def source_frames_needed(shot_frames: int, speed: Curve) -> float:
     return float(np.sum(_interp(speed, tau)))
 
 
-def decode_window(path: str, t0: float, n_frames: int, w: int, h: int, cover_scale: float, fps: float) -> np.ndarray:
+def decode_window(path: str, t0: float, n_frames: int, w: int, h: int, cover_scale: float, fps: float, denoise: float = 0.0) -> np.ndarray:
     """Frames [n,H',W',3] a `fps`, escalados para COBRIR (w*cs, h*cs) e cortados ao centro nesse tamanho."""
     info = probe(path)
     tw, th = int(round(w * cover_scale / 2)) * 2, int(round(h * cover_scale / 2)) * 2
@@ -37,8 +37,12 @@ def decode_window(path: str, t0: float, n_frames: int, w: int, h: int, cover_sca
         vf = f"scale=-2:{th}:flags=bicubic,crop={tw}:{th}"
     else:
         vf = f"scale={tw}:-2:flags=bicubic,crop={tw}:{th}"
+    dn = ""
+    if denoise > 0.01:  # hqdn3d (espacial+temporal) à resolução NATIVA, antes de ampliar
+        d = min(denoise, 1.0)
+        dn = f"hqdn3d={1.6 * d:.2f}:{1.3 * d:.2f}:{3.0 * d:.2f}:{2.5 * d:.2f},"
     cmd = ["ffmpeg", "-v", "error", "-ss", f"{max(t0, 0):.4f}", "-i", path, "-an",
-           "-vf", f"fps={fps},{vf},format=rgb24", "-frames:v", str(n_frames), "-f", "rawvideo", "-"]
+           "-vf", f"fps={fps},{dn}{vf},format=rgb24", "-frames:v", str(n_frames), "-f", "rawvideo", "-"]
     r = subprocess.run(cmd, capture_output=True, timeout=300)
     if r.returncode != 0:
         raise RuntimeError(f"decode falhou {path}: {r.stderr[-300:].decode(errors='replace')}")
@@ -73,7 +77,10 @@ def _sharpen_luma(img: np.ndarray, amount: float) -> np.ndarray:
     sigma = max(0.8, 1.1 * img.shape[1] / 540.0)
     detail = y - cv2.GaussianBlur(y, (0, 0), sigma)
     w = np.clip(np.abs(detail) / 8.0, 0.0, 1.0)  # suprime micro-variações (ruído/blocos)
-    ycc[..., 0] = np.clip(y + amount * detail * w, 0, 255).astype(np.uint8)
+    out = y + amount * detail * w
+    k = np.ones((5, 5), np.uint8)  # anti-halo: o resultado não pode exceder o mínimo/máximo local (sem overshoot nas arestas)
+    out = np.minimum(np.maximum(out, cv2.erode(y, k)), cv2.dilate(y, k))
+    ycc[..., 0] = np.clip(out, 0, 255).astype(np.uint8)
     return cv2.cvtColor(ycc, cv2.COLOR_YCrCb2RGB)
 
 
@@ -105,7 +112,16 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None):
     scale = np.exp(zk)
     max_scale = float(scale.max())
     cover = max(1.0, min(max_scale, 2.0))  # decodifica com margem p/ não desfocar em zoom-in
-    frames = decode_window(clip.source_path, clip.src_start_s, need, tl.width, tl.height, cover, fps)
+    frames = None
+    if tl.sr and srmod.available():
+        info = probe(clip.source_path)
+        a = tl.width / tl.height
+        nw, nh = (int(info.height * a) // 2 * 2, info.height // 2 * 2) if info.aspect > a else (info.width // 2 * 2, int(info.width / a) // 2 * 2)
+        if tl.width * max_scale / nw >= 1.5:  # só onde a ampliação é grande
+            native = decode_window(clip.source_path, clip.src_start_s, need, nw, nh, 1.0, fps, tl.denoise)
+            frames = srmod.enhance_native(native, 1.5, key=(clip.source_path, round(clip.src_start_s, 3), need, tl.denoise))
+    if frames is None:
+        frames = decode_window(clip.source_path, clip.src_start_s, need, tl.width, tl.height, cover, fps, tl.denoise)
     n_src, H, W = frames.shape[0], frames.shape[1], frames.shape[2]
 
     mask_arr = (masks or {}).get(clip.source_path)
@@ -139,9 +155,12 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None):
             if k not in mask_win:
                 mask_win[k] = _fit_mask(mask_arr[k], W, H)
             al = cv2.warpAffine(mask_win[k], m, (tl.width, tl.height), flags=cv2.INTER_LINEAR)
-            er = max(3, int(0.012 * tl.width) | 1)  # erosão: a máscara do modelo é generosa e apanha céu (contorno claro)
+            er = max(3, int(0.008 * tl.width) | 1)  # erosão leve: a máscara do modelo é generosa e apanha céu
             al = cv2.erode(al, np.ones((er, er), np.uint8))
-            al = cv2.GaussianBlur(al, (0, 0), max(1.0, 0.008 * tl.width))
+            # filtro guiado: ajusta o alfa aos contornos REAIS da imagem (elimina o contorno claro/halo)
+            guide = cv2.cvtColor(np.ascontiguousarray(out), cv2.COLOR_RGB2GRAY)
+            al = cv2.ximgproc.guidedFilter(guide, np.ascontiguousarray(al, dtype=np.float32), max(4, int(0.012 * tl.width)), 60.0)
+            al = np.clip(al, 0.0, 1.0)
             if clip.flip:
                 al = al[:, ::-1]
             out = _enhance(np.ascontiguousarray(out), np.ascontiguousarray(al), clip)

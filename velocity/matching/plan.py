@@ -82,7 +82,7 @@ def _retime_to_music(dna: EditDNA, music_path: str) -> tuple[list[int], float, d
 
 def build_timeline(dna: EditDNA, clips: list[ClipProfile], matches: list[Match], size=(1080, 1920),
                    music_path: str | None = None, weights: MatchWeights | None = None,
-                   zoom_gain: float = 1.0, fx: bool = True, fx_scale: float = 1.0, tone: float = TONE_STRENGTH, subject_enhance: bool = False) -> tuple[Timeline, dict]:
+                   zoom_gain: float = 1.0, fx: bool = True, fx_scale: float = 1.0, tone: float = TONE_STRENGTH, subject_enhance: bool = False, denoise: float = 0.0, sr: bool = False) -> tuple[Timeline, dict]:
     w = weights or MatchWeights()
     cuts, offset, info = _retime_to_music(dna, music_path) if music_path else (dna.cut_frames(), 0.0, {"retimed": False})
     bounds = [0] + cuts + [dna.n_frames]
@@ -111,5 +111,5 @@ def build_timeline(dna: EditDNA, clips: list[ClipProfile], matches: list[Match],
     info["fx"] = fx_info
     tl = Timeline(fps=dna.fps, width=size[0], height=size[1], n_frames=dna.n_frames, shots=shots,
                   fx_events=dna.fx_events, effects=effects, fx_scale=fx_scale, music_path=music_path,
-                  music_offset_s=offset, zoom_gain=zoom_gain)
+                  music_offset_s=offset, zoom_gain=zoom_gain, denoise=denoise, sr=sr)
     return tl, info

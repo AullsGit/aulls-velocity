@@ -45,3 +45,10 @@ escurece só o fundo (máscara erodida). A/B em 4 refs: brilho mais perto da ref
 resta contorno claro ténue (próximo: refinar a máscara com filtro guiado). Nitidez guiada pela referência no ciclo fechado
 (`post_sharp`, só nos contornos, só se o output for mais mole): 0.40->0.51 e 0.41->0.59, sem ruído amplificado a 200%.
 Bloqueio de hardware: GPU limitada a 10 W (limite 60 W) pelo modo do portátil (NitroSense); segmentação ~550 ms/frame até resolver.
+
+## Atualização — filtro guiado, anti-halo, denoise e super-resolução (2026-09-20, sessão 2, fim)
+1) Máscara do sujeito refinada com filtro guiado (cv2.ximgproc) + nitidez com limite anti-overshoot (mín/máx local): o contorno claro
+   vinha em boa parte do próprio unsharp; agora desaparece. 2) `--denoise` (hqdn3d à resolução nativa, defeito 0.5): efeito suave, baixo risco.
+3) `--sr` EXPERIMENTAL (Real-ESRGAN general x4v3 via spandrel, `bench/models/`): só em planos com ampliação >=1.5x; SR limitada ao mín/máx local
+   da bicúbica e misturada 75/25 (sem halo/plástico, validado em A/B visual). Custo: ~2.6 s/frame com a GPU a 10 W (deve ser ~10x menos a 60 W).
+Nota: nvidia-smi bloqueia enquanto a GPU está sob carga; benchmark de GPU tem de sincronizar (torch.cuda.synchronize) com nº fixo de operações.
