@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from velocity.io.probe import probe
+from velocity.io.probe import has_audio_stream, probe
 
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "bench", "cache")
 
@@ -81,8 +81,7 @@ def load_frames(path: str, fps: float = 30.0, width: int = 192, use_cache: bool 
 
 def load_audio(path: str, sr: int = 22050) -> np.ndarray | None:
     """Áudio mono float32 [-1,1] via pipe (sem ficheiros temporários). None se não houver áudio."""
-    info = probe(path)
-    if not info.has_audio:
+    if not has_audio_stream(path):
         return None
     cmd = ["ffmpeg", "-v", "error", "-i", path, "-vn", "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"]
     r = subprocess.run(cmd, capture_output=True, timeout=600)

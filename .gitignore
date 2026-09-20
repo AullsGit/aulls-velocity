@@ -9,3 +9,4 @@ work/
 bench/data/
 bench/cache/
 *.tflite
+bench/out/

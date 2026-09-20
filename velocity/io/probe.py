@@ -55,3 +55,10 @@ def probe(path: str) -> VideoInfo:
         has_audio=a is not None,
         audio_sample_rate=int(a["sample_rate"]) if a and a.get("sample_rate") else None,
     )
+
+
+def has_audio_stream(path: str) -> bool:
+    """True se o ficheiro (vídeo OU só-áudio) tem uma faixa de áudio."""
+    r = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_type",
+                        "-of", "csv=p=0", path], capture_output=True, text=True, timeout=60)
+    return r.returncode == 0 and "audio" in r.stdout
