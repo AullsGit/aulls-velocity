@@ -51,11 +51,14 @@ def cmd_make(a):
     w = MatchWeights()
     ms = match(dna, clips, w)
     tl, info = build_timeline(dna, clips, ms, size=_size(a.size), music_path=a.music, weights=w, zoom_gain=a.zoom_gain)
+    if not a.music and a.audio_ref and dna.audio.has_audio:
+        tl.music_path, tl.music_offset_s = a.ref, 0.0  # sem música: usa o áudio da referência (cortes já coincidem com ele)
+        info = {"audio": "da referência"}
     log(f"matching feito; música: {info}")
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     render(tl, a.out, crf=a.crf, progress=lambda i, n: None)
     log(f"render concluído -> {a.out}")
-    out_dna = analyze_reference(a.out, with_audio=bool(a.music))
+    out_dna = analyze_reference(a.out, with_audio=bool(tl.music_path))
     rep = compare(dna, out_dna)
     rep["execution"] = compare_plan([sh.start_frame for sh in tl.shots[1:]], out_dna)
     log(f"execução (cortes planeados presentes no output): {rep['execution']}")
@@ -75,7 +78,7 @@ def main(argv=None):
     p.add_argument("--ref", required=True); p.add_argument("--clips", nargs="+", required=True)
     p.add_argument("--music"); p.add_argument("--out", required=True)
     p.add_argument("--size", default="540x960"); p.add_argument("--crf", type=int, default=18)
-    p.add_argument("--zoom-gain", type=float, default=1.0); p.add_argument("--force", action="store_true")
+    p.add_argument("--audio-ref", action="store_true", help="sem --music, usa o áudio da referência"); p.add_argument("--zoom-gain", type=float, default=1.0); p.add_argument("--force", action="store_true")
     p.add_argument("--report"); p.set_defaults(fn=cmd_make)
     a = ap.parse_args(argv)
     return a.fn(a) or 0

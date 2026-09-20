@@ -32,5 +32,7 @@ if use_music:
     args += ["--music", music[0]]
     if len(music) > 1:
         print(f"Aviso: {len(music)} músicas encontradas; a usar {os.path.basename(music[0])}")
-print(f"Referência: {os.path.basename(refs[0])} | {len(clips)} clip(s) | música: {os.path.basename(music[0]) if use_music else 'nenhuma'}")
+if not use_music:
+    args.append("--audio-ref")  # sem música do utilizador: usa o áudio da referência
+print(f"Referência: {os.path.basename(refs[0])} | {len(clips)} clip(s) | música: {os.path.basename(music[0]) if use_music else 'áudio da referência'}")
 sys.exit(main(args))
