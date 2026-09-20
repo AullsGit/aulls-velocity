@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 
 from velocity.io.probe import probe
-from velocity.render import effects
+from velocity.render import effects, fxstack
 from velocity.schemas.edit_dna import Curve
 from velocity.schemas.timeline import ClipUse, Timeline, TimelineShot
 
@@ -59,7 +59,8 @@ def _render_shot(shot: TimelineShot, tl: Timeline):
     cum = np.concatenate([[0.0], np.cumsum(rate)[:-1]])  # posição fonte (em frames) do início de cada frame de saída
     need = int(math.ceil(cum[-1] + rate[-1])) + 3
 
-    zk = np.maximum(_interp(clip.zoom, tau) * tl.zoom_gain, 0.0)  # ln(escala) ABSOLUTO >= 0 (1x = cover-fit)
+    zk = _interp(clip.zoom, tau) * tl.zoom_gain + fxstack.zoom_extra(shot.start_frame, L, tl.effects, tl.fx_scale)
+    zk = np.maximum(zk, 0.0)  # ln(escala) ABSOLUTO >= 0 (1x = cover-fit)
     scale = np.exp(zk)
     max_scale = float(scale.max())
     cover = max(1.0, min(max_scale, 2.0))  # decodifica com margem p/ não desfocar em zoom-in
@@ -77,8 +78,9 @@ def _render_shot(shot: TimelineShot, tl: Timeline):
         rw, rh = W / scale[j], H / scale[j]
         cx = (clip.center[0] + clip.pan[0] * tau[j]) * W
         cy = (clip.center[1] + clip.pan[1] * tau[j]) * H
-        x0 = float(np.clip(cx - rw / 2, 0, W - rw))
-        y0 = float(np.clip(cy - rh / 2, 0, H - rh))
+        sdx, sdy = fxstack.shake_offsets(shot.start_frame + j, tl.effects, W, tl.fx_scale)
+        x0 = float(np.clip(cx - rw / 2 + sdx, 0, W - rw))
+        y0 = float(np.clip(cy - rh / 2 + sdy, 0, H - rh))
         m = np.array([[tl.width / rw, 0, -x0 * tl.width / rw], [0, tl.height / rh, -y0 * tl.height / rh]], np.float32)
         out = cv2.warpAffine(img, m, (tl.width, tl.height), flags=cv2.INTER_LINEAR)
         if clip.flip:
@@ -116,6 +118,8 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None) -> str:
     try:
         for si, shot in enumerate(tl.shots):
             for f, img in _render_shot(shot, tl):
+                if tl.effects:
+                    img = fxstack.post_fx(img, f, tl.effects, tl.fx_scale)
                 # efeitos cuja janela contém f (transições e eventos de fx)
                 for t in all_trans:
                     if t.start_frame <= f < t.end_frame:

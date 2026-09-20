@@ -7,6 +7,7 @@ from velocity.io.frames import load_frames
 from velocity.io.probe import probe
 from velocity.reference import audio as audio_mod
 from velocity.reference import shot_features as sf
+from velocity.reference.effects_detect import build_look, detect_effects
 from velocity.reference.segmenter import SegmenterParams, segment
 from velocity.reference.signals import compute_signals, crop_letterbox, detect_letterbox
 from velocity.schemas.edit_dna import AudioDNA, EditDNA, Shot, Signature
@@ -67,6 +68,10 @@ def analyze_reference(path: str, params: SegmenterParams | None = None, with_aud
     duration_s = n / fr.fps
     audio = audio_mod.analyze_audio(path, seg.transitions, fr.fps, duration_s) if (with_audio and info.has_audio) else AudioDNA(has_audio=False)
 
+    beats = audio.beats if audio.has_audio else []
+    tracks, fx_mask, contrast = detect_effects(rgb, sig, seg.transitions, seg.fx_events, beats, fr.fps)
+    look = build_look(sig, fx_mask, contrast, tracks, seg.transitions, duration_s)
+
     warnings = []
     if abs(info.aspect - 9 / 16) > 0.06:
         warnings.append(f"aspecto {info.width}x{info.height} ({info.orientation}) difere de 9:16; análise ok, saída será 9:16")
@@ -79,6 +84,6 @@ def analyze_reference(path: str, params: SegmenterParams | None = None, with_aud
 
     return EditDNA(
         source_path=path, width=info.width, height=info.height, fps=fr.fps, n_frames=n, duration_s=round(duration_s, 3),
-        letterbox=lb, shots=shots, fx_events=seg.fx_events, audio=audio,
+        letterbox=lb, shots=shots, fx_events=seg.fx_events, effects=tracks, look=look, audio=audio,
         signature=_signature(shots, seg.fx_events, fr.fps, duration_s), warnings=warnings,
     )

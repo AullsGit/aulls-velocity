@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 TransitionType = Literal["cut", "flash", "dip_black", "blur", "glitch"]
 BlurKind = Literal["none", "horizontal", "vertical", "radial"]
@@ -102,6 +102,45 @@ class FxEvent(BaseModel):
     intensity: float
 
 
+EffectType = Literal["zoom_punch", "shake", "rgb_split", "exposure_pulse", "contrast_pulse", "sat_pulse"]
+AnchorKind = Literal["cut", "beat", "free"]
+
+
+class EffectTrack(BaseModel):
+    """Efeito MEDIDO na referência (nunca inventado). `magnitude` é a grandeza física; `intensity`
+    é essa grandeza normalizada 0..1 para comparar entre efeitos. A âncora diz a que evento o
+    efeito está preso, para o planeador o transferir para os cortes/batidas do resultado."""
+
+    type: EffectType
+    start_frame: int
+    end_frame: int  # exclusivo
+    peak_frame: int
+    magnitude: float  # zoom_punch: ln(escala) (+ = in); shake: amplitude/largura; rgb_split: desvio/largura; pulses: variação relativa com sinal
+    intensity: float = Field(0.0, ge=0.0, le=1.0)
+    anchor: AnchorKind = "free"
+    anchor_ref: int | None = None  # índice da transição (cut) ou da batida (beat)
+    anchor_offset: int = 0  # peak_frame - frame da âncora
+    confidence: float = Field(0.5, ge=0.0, le=1.0)
+
+
+class LookProfile(BaseModel):
+    """O 'look' global da referência: o que o melhoramento visual TEM de respeitar."""
+
+    sharpness: float  # variância do Laplaciano (192 px) mediana nos frames estáveis
+    contrast: float
+    saturation: float
+    luma: float
+    motion_energy_mean: float
+    motion_energy_p90: float
+    cuts_per_second: float
+    effect_transition_rate: float  # transições não-cut por segundo
+    punch_rate: float  # zoom-punches por segundo
+    shake_fraction: float  # fração de frames em shake
+    rgb_split_fraction: float
+    aggressiveness: float = Field(0.0, ge=0.0, le=1.0)
+    descriptors: list[str] = []  # ex.: ["aggressive", "fast"]
+
+
 class AudioDNA(BaseModel):
     has_audio: bool
     bpm: float | None = None
@@ -151,6 +190,8 @@ class EditDNA(BaseModel):
     letterbox: Letterbox
     shots: list[Shot]
     fx_events: list[FxEvent] = []
+    effects: list[EffectTrack] = []
+    look: LookProfile | None = None
     audio: AudioDNA
     signature: Signature
     warnings: list[str] = []

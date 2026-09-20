@@ -5,6 +5,7 @@ import numpy as np
 
 from velocity.io.frames import load_audio
 from velocity.matching.engine import Match, MatchWeights, reframe
+from velocity.matching.fx_plan import plan_effects
 from velocity.media.analyzer import ClipProfile
 from velocity.reference.audio import ALIGN_TOL_S, SR, _beat_analysis
 from velocity.schemas.edit_dna import Curve, EditDNA, Transition
@@ -49,7 +50,7 @@ def _retime_to_music(dna: EditDNA, music_path: str) -> tuple[list[int], float, d
 
 def build_timeline(dna: EditDNA, clips: list[ClipProfile], matches: list[Match], size=(1080, 1920),
                    music_path: str | None = None, weights: MatchWeights | None = None,
-                   zoom_gain: float = 1.0) -> tuple[Timeline, dict]:
+                   zoom_gain: float = 1.0, fx: bool = True, fx_scale: float = 1.0) -> tuple[Timeline, dict]:
     w = weights or MatchWeights()
     cuts, offset, info = _retime_to_music(dna, music_path) if music_path else (dna.cut_frames(), 0.0, {"retimed": False})
     bounds = [0] + cuts + [dna.n_frames]
@@ -73,6 +74,9 @@ def build_timeline(dna: EditDNA, clips: list[ClipProfile], matches: list[Match],
             clip=ClipUse(source_path=c.path, src_start_s=m.start_frame / c.fps, speed=m.speed or Curve(t=[0, 1], v=[1, 1]),
                          zoom=Curve(t=list(zt), v=[round(float(v), 4) for v in z_abs]), center=center, pan=pan),
             transition_in=t_in))
+    effects, fx_info = plan_effects(dna, cuts) if fx else ([], {"desligado": True})
+    info["fx"] = fx_info
     tl = Timeline(fps=dna.fps, width=size[0], height=size[1], n_frames=dna.n_frames, shots=shots,
-                  fx_events=dna.fx_events, music_path=music_path, music_offset_s=offset, zoom_gain=zoom_gain)
+                  fx_events=dna.fx_events, effects=effects, fx_scale=fx_scale, music_path=music_path,
+                  music_offset_s=offset, zoom_gain=zoom_gain)
     return tl, info

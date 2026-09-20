@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
-from velocity.schemas.edit_dna import Curve, FxEvent, Transition
+from velocity.schemas.edit_dna import Curve, EffectTrack, FxEvent, Transition
 
 
 class ClipUse(BaseModel):
@@ -37,6 +37,8 @@ class Timeline(BaseModel):
     n_frames: int
     shots: list[TimelineShot]
     fx_events: list[FxEvent] = []
+    effects: list[EffectTrack] = []  # efeitos paramétricos planeados (ver render/fxstack.py)
+    fx_scale: float = 1.0  # alavanca global de intensidade (protetor de fidelidade)
     music_path: str | None = None
     music_offset_s: float = 0.0
     zoom_gain: float = 1.0  # amplifica o zoom do DNA (1 = fiel)

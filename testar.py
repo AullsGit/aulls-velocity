@@ -1,4 +1,4 @@
-"""Lançador de testes: lê as pastas teste/1_reference, 2_inputs, 3_music e escreve em 4_output.
+r"""Lançador de testes: lê as pastas teste/1_reference, 2_inputs, 3_music e escreve em 4_output.
 Uso:  venv\Scripts\python.exe testar.py [--size 1080x1920] [--force] [--sem-musica]"""
 import glob
 import os
