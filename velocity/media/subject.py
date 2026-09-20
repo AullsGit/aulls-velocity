@@ -22,6 +22,7 @@ class SubjectLocator(Protocol):
 class BackgroundSubtractionLocator:
     def __init__(self, static_thresh: float = 0.004, diff_thresh: float = 28.0, min_area_frac: float = 0.002):
         self.static_thresh, self.diff_thresh, self.min_area_frac = static_thresh, diff_thresh, min_area_frac
+        self.last_masks: np.ndarray | None = None  # [N,H,W] uint8 0/255 (só câmara fixa)
 
     def locate(self, rgb: np.ndarray, cam_motion: np.ndarray) -> np.ndarray:
         n, h, w, _ = rgb.shape
@@ -29,6 +30,7 @@ class BackgroundSubtractionLocator:
         gray = np.stack([cv2.cvtColor(f, cv2.COLOR_RGB2GRAY) for f in rgb]).astype(np.float32)
         gray = np.stack([cv2.GaussianBlur(g, (5, 5), 0) for g in gray])
         static = float(np.median(cam_motion[1:])) < self.static_thresh if n > 2 else True
+        self.last_masks = np.zeros((n, h, w), np.uint8) if static else None
         if static:
             bg = np.median(gray[:: max(1, n // 40)], axis=0)
             for i in range(n):
@@ -43,6 +45,9 @@ class BackgroundSubtractionLocator:
                 if area < self.min_area_frac * h * w:
                     continue
                 x, y, bw, bh = stats[k, :4]
+                comp = (lab == k).astype(np.uint8)
+                comp = cv2.dilate(cv2.morphologyEx(comp, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8)), np.ones((5, 5), np.uint8))
+                self.last_masks[i] = comp * 255
                 out[i] = ((x + bw / 2) / w, (y + bh / 2) / h, bh / h, 1.0)
         else:
             sal = cv2.saliency.StaticSaliencySpectralResidual_create()

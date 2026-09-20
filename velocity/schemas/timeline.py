@@ -16,6 +16,11 @@ class ClipUse(BaseModel):
     center: tuple[float, float] = (0.5, 0.5)  # ponto de interesse (fração do frame fonte)
     pan: tuple[float, float] = (0.0, 0.0)  # deslocamento total da janela de corte (fração da largura/altura)
     flip: bool = False
+    tone_gamma: float = 1.0  # <1 clareia, >1 escurece (aproxima o brilho do plano da referência)
+    tone_sat: float = 1.0  # multiplicador de saturação
+    subj_gamma: float = 1.0  # <1 levanta a luz SÓ do sujeito (máscara)
+    bg_gamma: float = 1.0  # >1 escurece SÓ o fundo (clima da referência)
+    subj_sharp: float = 0.0  # 0..1 nitidez local no sujeito (unsharp em máscara)
 
 
 class TimelineShot(BaseModel):
@@ -39,6 +44,10 @@ class Timeline(BaseModel):
     fx_events: list[FxEvent] = []
     effects: list[EffectTrack] = []  # efeitos paramétricos planeados (ver render/fxstack.py)
     fx_scale: float = 1.0  # alavanca global de intensidade (protetor de fidelidade)
+    post_gamma: float = 1.0  # correção global de look (ciclo fechado), aplicada a todos os frames
+    post_sat: float = 1.0
+    post_contrast: float = 1.0
+    post_pivot: float = 110.0  # luma-alvo à volta da qual o contraste é escalado
     music_path: str | None = None
     music_offset_s: float = 0.0
     zoom_gain: float = 1.0  # amplifica o zoom do DNA (1 = fiel)

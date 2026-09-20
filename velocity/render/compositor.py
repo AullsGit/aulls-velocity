@@ -49,7 +49,37 @@ def decode_window(path: str, t0: float, n_frames: int, w: int, h: int, cover_sca
     return buf[: n * tw * th * 3].reshape(n, th, tw, 3)
 
 
-def _render_shot(shot: TimelineShot, tl: Timeline):
+def _fit_mask(mask: np.ndarray, W: int, H: int) -> np.ndarray:
+    """Máscara (192 px, aspeto da fonte) -> mesmo cover-crop central que o decode: [H,W] float 0..1."""
+    mh, mw = mask.shape
+    src_ar = mw / mh
+    if src_ar > W / H:
+        nh, nw = H, int(round(H * src_ar))
+        r = cv2.resize(mask, (nw, nh), interpolation=cv2.INTER_LINEAR)
+        x0 = (nw - W) // 2
+        r = r[:, x0:x0 + W]
+    else:
+        nw, nh = W, int(round(W / src_ar))
+        r = cv2.resize(mask, (nw, nh), interpolation=cv2.INTER_LINEAR)
+        y0 = (nh - H) // 2
+        r = r[y0:y0 + H, :]
+    return r.astype(np.float32) / 255.0
+
+
+def _enhance(out: np.ndarray, alpha: np.ndarray, clip: ClipUse) -> np.ndarray:
+    """Melhoria LOCAL: sujeito e fundo recebem tratamentos diferentes, misturados pela máscara suave."""
+    x = np.arange(256) / 255.0
+    lut_s = (255.0 * x ** clip.subj_gamma).clip(0, 255).astype(np.uint8)
+    lut_b = (255.0 * x ** clip.bg_gamma).clip(0, 255).astype(np.uint8)
+    subj = cv2.LUT(out, lut_s)
+    if clip.subj_sharp > 0:
+        blur = cv2.GaussianBlur(subj, (0, 0), 1.3)
+        subj = cv2.addWeighted(subj, 1.0 + clip.subj_sharp, blur, -clip.subj_sharp, 0)
+    a = alpha[..., None]
+    return (a * subj.astype(np.float32) + (1.0 - a) * cv2.LUT(out, lut_b).astype(np.float32)).clip(0, 255).astype(np.uint8)
+
+
+def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None):
     """Gera (frame_global, imagem) para cada frame do plano, ainda SEM efeito de transição."""
     clip: ClipUse = shot.clip
     L = shot.n_frames
@@ -66,6 +96,14 @@ def _render_shot(shot: TimelineShot, tl: Timeline):
     cover = max(1.0, min(max_scale, 2.0))  # decodifica com margem p/ não desfocar em zoom-in
     frames = decode_window(clip.source_path, clip.src_start_s, need, tl.width, tl.height, cover, fps)
     n_src, H, W = frames.shape[0], frames.shape[1], frames.shape[2]
+
+    mask_arr = (masks or {}).get(clip.source_path)
+    use_mask = mask_arr is not None and (abs(clip.subj_gamma - 1.0) > 0.02 or abs(clip.bg_gamma - 1.0) > 0.02 or clip.subj_sharp > 0)
+    i_src0 = int(round(clip.src_start_s * fps))
+    mask_win = {}
+    lut = None
+    if abs(clip.tone_gamma - 1.0) > 0.02:
+        lut = (255.0 * (np.arange(256) / 255.0) ** clip.tone_gamma).clip(0, 255).astype(np.uint8)
 
     for j in range(L):
         pos = min(cum[j], n_src - 1.0)
@@ -85,6 +123,20 @@ def _render_shot(shot: TimelineShot, tl: Timeline):
         out = cv2.warpAffine(img, m, (tl.width, tl.height), flags=cv2.INTER_LINEAR)
         if clip.flip:
             out = out[:, ::-1]
+        if use_mask:
+            k = min(i_src0 + i0, len(mask_arr) - 1)
+            if k not in mask_win:
+                mask_win[k] = _fit_mask(mask_arr[k], W, H)
+            al = cv2.warpAffine(mask_win[k], m, (tl.width, tl.height), flags=cv2.INTER_LINEAR)
+            al = cv2.GaussianBlur(al, (0, 0), max(1.0, 0.008 * tl.width))
+            if clip.flip:
+                al = al[:, ::-1]
+            out = _enhance(np.ascontiguousarray(out), np.ascontiguousarray(al), clip)
+        if lut is not None:
+            out = cv2.LUT(np.ascontiguousarray(out), lut)
+        if abs(clip.tone_sat - 1.0) > 0.02:
+            gray = cv2.cvtColor(out, cv2.COLOR_RGB2GRAY)
+            out = cv2.addWeighted(cv2.merge([gray, gray, gray]), 1.0 - clip.tone_sat, out, clip.tone_sat, 0)
         yield shot.start_frame + j, np.ascontiguousarray(out)
 
 
@@ -110,14 +162,18 @@ class _Writer:
             raise RuntimeError(f"ffmpeg encode falhou: {err[-600:]}")
 
 
-def render(tl: Timeline, out_path: str, crf: int = 18, progress=None) -> str:
+def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dict | None = None) -> str:
     duration = tl.n_frames / tl.fps
     w = _Writer(out_path, tl.width, tl.height, tl.fps, tl.music_path, tl.music_offset_s, duration, crf)
     all_trans = [s.transition_in for s in tl.shots if s.transition_in is not None]
+    post_lut = None
+    if abs(tl.post_gamma - 1.0) > 0.01 or abs(tl.post_contrast - 1.0) > 0.01:
+        x = 255.0 * (np.arange(256) / 255.0) ** tl.post_gamma
+        post_lut = (tl.post_pivot + (x - tl.post_pivot) * tl.post_contrast).clip(0, 255).astype(np.uint8)
     written = 0
     try:
         for si, shot in enumerate(tl.shots):
-            for f, img in _render_shot(shot, tl):
+            for f, img in _render_shot(shot, tl, masks):
                 if tl.effects:
                     img = fxstack.post_fx(img, f, tl.effects, tl.fx_scale)
                 # efeitos cuja janela contém f (transições e eventos de fx)
@@ -129,6 +185,11 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None) -> str:
                         mid = (ev.start_frame + ev.end_frame) // 2
                         amt = effects.envelope(f, ev.start_frame, mid, ev.end_frame)
                         img = effects.apply(img, ev.type, amt, ev.intensity, "radial", f)
+                if post_lut is not None:
+                    img = cv2.LUT(img, post_lut)
+                if abs(tl.post_sat - 1.0) > 0.02:
+                    g = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+                    img = cv2.addWeighted(cv2.merge([g, g, g]), 1.0 - tl.post_sat, img, tl.post_sat, 0)
                 w.write(img)
                 written += 1
             if progress:

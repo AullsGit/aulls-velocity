@@ -25,3 +25,16 @@ Pacote novo: `velocity/`. MVP original preservado em `legacy/` (só consulta).
 6. Referências reais têm 10-19 s; alvo do produto é 25-30 s (ainda não há estratégia de extensão).
 7. Áudio da referência NUNCA entra no output (só como "música de teste" manual via --music).
 8. Torch instalado é CPU-only.
+
+
+## Atualização — sistema de efeitos e look (2026-09-20, sessão 2)
+Novo: `EffectTrack` + `LookProfile` no DNA v1.1; `render/fxstack.py` (zoom_punch, shake, rgb_split, pulsos);
+`matching/fx_plan.py` (regra da evidência); `evaluate/effects_fidelity.py` (protetor); ajuste de tom por plano;
+ciclo fechado de look no `cli make` (`--fx-iters`, `--tone`, `--no-fx`, `--subject-enhance` EXPERIMENTAL).
+Validação: `bench/look_eval.py` (suave/agressivo vs etiquetas do utilizador: 16/18, otimista), `tests/test_effects_roundtrip.py`.
+
+Achados: (1) zoom medido por fluxo óptico é ~50% subestimado em zonas sem textura -> comparar sempre no domínio da
+medição; (2) igualar só a luma média cria silhuetas quando o sujeito está em contraluz; (3) realce do sujeito com máscara
+de subtração de fundo cria halos -> desligado por defeito; (4) energia de movimento vem do conteúdo: clips calmos não
+chegam à agressividade da referência sem "inventar" efeitos (decisão do utilizador).
+Pendente: segmentador de pessoas em GPU (torch CUDA a instalar), depois relight/denoise/super-resolução com A/B.

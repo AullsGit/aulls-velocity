@@ -29,6 +29,9 @@ class ClipProfile:
     sharp: np.ndarray
     bad: np.ndarray  # [n] bool: frame instável (corte/blur/flash do PRÓPRIO clip) -> evitar em janelas
     has_audio: bool
+    masks: np.ndarray | None = None  # [n,H,W] uint8 máscara do sujeito (192 px de largura), se disponível
+    subj_lum: np.ndarray | None = None  # [n] luma média DENTRO da máscara (nan sem máscara)
+    bg_lum: np.ndarray | None = None  # [n] luma média FORA da máscara
 
     def window_bad(self, i: int, length: int) -> bool:
         return bool(self.bad[i : i + length].any())
@@ -39,7 +42,16 @@ def analyze_clip(path: str, locator: SubjectLocator | None = None) -> ClipProfil
     fr = load_frames(path, fps=FPS, width=192)
     sig = compute_signals(fr.rgb, fr.fps)
     cam = np.hypot(sig.tx, sig.ty) + np.abs(sig.zoom)
-    loc = (locator or BackgroundSubtractionLocator()).locate(fr.rgb, cam)
+    locator = locator or BackgroundSubtractionLocator()
+    loc = locator.locate(fr.rgb, cam)
+    masks = getattr(locator, "last_masks", None)
+    subj_lum = bg_lum = None
+    if masks is not None:
+        gray = fr.rgb.astype(np.float32).mean(axis=3)
+        m = masks > 0
+        cnt_in, cnt_out = m.sum(axis=(1, 2)), (~m).sum(axis=(1, 2))
+        subj_lum = np.where(cnt_in > 20, (gray * m).sum(axis=(1, 2)) / np.maximum(cnt_in, 1), np.nan)
+        bg_lum = (gray * ~m).sum(axis=(1, 2)) / np.maximum(cnt_out, 1)
     p = SegmenterParams()
     u = instability(sig, p)
     u[0] = 0
@@ -49,4 +61,5 @@ def analyze_clip(path: str, locator: SubjectLocator | None = None) -> ClipProfil
     return ClipProfile(
         path=path, n=fr.n, fps=fr.fps, duration_s=fr.n / fr.fps, width=info.width, height=info.height,
         energy=sig.flow_mag, subj=loc, lum=sig.lum, sat=sig.sat, sharp=sig.sharp, bad=bad, has_audio=info.has_audio,
+        masks=masks, subj_lum=subj_lum, bg_lum=bg_lum,
     )

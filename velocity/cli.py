@@ -51,24 +51,42 @@ def cmd_make(a):
     log(f"material: {len(clips)} clips, {sum(c.duration_s for c in clips):.1f}s no total")
     w = MatchWeights()
     ms = match(dna, clips, w)
-    tl, info = build_timeline(dna, clips, ms, size=_size(a.size), music_path=a.music, weights=w, zoom_gain=a.zoom_gain, fx=not a.no_fx)
+    tl, info = build_timeline(dna, clips, ms, size=_size(a.size), music_path=a.music, weights=w, zoom_gain=a.zoom_gain, fx=not a.no_fx, tone=a.tone, subject_enhance=a.subject_enhance)
     if not a.music and a.audio_ref and dna.audio.has_audio:
         tl.music_path, tl.music_offset_s = a.ref, 0.0  # sem música: usa o áudio da referência (cortes já coincidem com ele)
-        info = {"audio": "da referência"}
+        info = {**info, "audio": "da referência"}
     log(f"matching feito; música: {info}")
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
-    render(tl, a.out, crf=a.crf, progress=lambda i, n: None)
+    masks = {c.path: c.masks for c in clips if c.masks is not None}
+    render(tl, a.out, crf=a.crf, progress=lambda i, n: None, masks=masks)
     log(f"render concluído -> {a.out}")
     out_dna = analyze_reference(a.out, with_audio=bool(tl.music_path))
     fxrep = compare_effects(dna, out_dna)
-    # ciclo fechado: ajusta fx_scale para aproximar as magnitudes medidas, no máximo a.fx_iters vezes
+    # ciclo fechado: aproxima as magnitudes dos efeitos E o look global (brilho/saturação/contraste)
+    # do output ao da referência, medidos com o mesmo estimador. No máximo a.fx_iters re-renders.
+    import math
     for it in range(a.fx_iters):
+        changes = []
         sug = fxrep["suggested_fx_scale"]
-        if a.no_fx or not sug:
+        if sug and not a.no_fx and fxrep["invented_ratio"] < 0.2 and tl.fx_scale * sug <= 1.4:
+            tl.fx_scale = round(tl.fx_scale * sug, 3)
+            changes.append(f"fx_scale={tl.fx_scale}")
+        lk_r, lk_o = dna.look, out_dna.look
+        if lk_r and lk_o and a.tone > 0:
+            if abs(lk_o.luma - lk_r.luma) > 10 and 5 < lk_o.luma < 250 and 5 < lk_r.luma < 250:
+                tl.post_gamma = round(min(max(tl.post_gamma * min(max(math.log(lk_r.luma / 255) / math.log(lk_o.luma / 255), 0.7), 1.25), 0.7), 1.25), 3)  # limite ACUMULADO
+                tl.post_pivot = float(lk_r.luma)
+                changes.append(f"post_gamma={tl.post_gamma}")
+            if lk_o.saturation > 1 and not 0.85 <= lk_r.saturation / lk_o.saturation <= 1.15:
+                tl.post_sat = round(min(max(tl.post_sat * min(max(lk_r.saturation / lk_o.saturation, 0.6), 1.6), 0.6), 1.35), 3)
+                changes.append(f"post_sat={tl.post_sat}")
+            if lk_o.contrast > 1 and not 0.85 <= lk_r.contrast / lk_o.contrast <= 1.15:
+                tl.post_contrast = round(min(max(tl.post_contrast * min(max(lk_r.contrast / lk_o.contrast, 0.6), 1.5), 0.75), 1.3), 3)
+                changes.append(f"post_contrast={tl.post_contrast}")
+        if not changes:
             break
-        tl.fx_scale = round(tl.fx_scale * sug, 3)
-        log(f"protetor de fidelidade: magnitudes fora de tolerância -> fx_scale={tl.fx_scale}; a re-renderizar")
-        render(tl, a.out, crf=a.crf, progress=lambda i, n: None)
+        log(f"protetor de fidelidade (iteração {it + 1}): {', '.join(changes)}; a re-renderizar")
+        render(tl, a.out, crf=a.crf, progress=lambda i, n: None, masks=masks)
         out_dna = analyze_reference(a.out, with_audio=bool(tl.music_path))
         fxrep = compare_effects(dna, out_dna)
     log(f"efeitos: {fxrep['types']} | inventados={fxrep['invented']} | look={fxrep['look']} | ok={fxrep['ok']} {fxrep['reasons']}")
@@ -77,7 +95,7 @@ def cmd_make(a):
     log(f"execução (cortes planeados presentes no output): {rep['execution']}")
     log(f"fidelidade (ref vs output re-analisado): {rep['fidelity']}  componentes={rep['components']}")
     if a.report:
-        json.dump({"detector": det.__dict__, "match": [m.__dict__ | {"speed": None} for m in ms], "retime": info, "eval": rep, "effects_eval": fxrep, "fx_scale": tl.fx_scale},
+        json.dump({"detector": det.__dict__, "match": [m.__dict__ | {"speed": None} for m in ms], "retime": info, "eval": rep, "effects_eval": fxrep, "fx_scale": tl.fx_scale, "post": [tl.post_gamma, tl.post_sat, tl.post_contrast]},
                   open(a.report, "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
     return 0
 
@@ -92,7 +110,7 @@ def main(argv=None):
     p.add_argument("--music"); p.add_argument("--out", required=True)
     p.add_argument("--size", default="540x960"); p.add_argument("--crf", type=int, default=18)
     p.add_argument("--audio-ref", action="store_true", help="sem --music, usa o áudio da referência"); p.add_argument("--zoom-gain", type=float, default=1.0); p.add_argument("--force", action="store_true")
-    p.add_argument("--no-fx", action="store_true", help="desliga os efeitos medidos na referência"); p.add_argument("--fx-iters", type=int, default=1)
+    p.add_argument("--no-fx", action="store_true", help="desliga os efeitos medidos na referência"); p.add_argument("--fx-iters", type=int, default=2); p.add_argument("--subject-enhance", action="store_true", help="EXPERIMENTAL: realce local do sujeito por máscara (halos com a máscara atual)"); p.add_argument("--tone", type=float, default=0.85, help="força do ajuste de tom (0-1) ao look da referência")
     p.add_argument("--report"); p.set_defaults(fn=cmd_make)
     a = ap.parse_args(argv)
     return a.fn(a) or 0
