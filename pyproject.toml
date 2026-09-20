@@ -1,0 +1,12 @@
+[project]
+name = "velocity"
+version = "0.1.0"
+description = "Velocity Edit AI — recria a linguagem de edição de uma referência com o conteúdo do utilizador"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "bench: testes que precisam do material em bench/data (mais lentos)",
+]

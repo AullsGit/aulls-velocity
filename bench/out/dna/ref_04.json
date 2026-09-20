@@ -1,0 +1,1825 @@
+{
+ "schema_version": "1.0",
+ "source_path": "bench/data/refs\\ref_04.mp4",
+ "width": 368,
+ "height": 368,
+ "fps": 30.0,
+ "n_frames": 422,
+ "duration_s": 14.067,
+ "letterbox": {
+  "top_frac": 0.0,
+  "bottom_frac": 0.0,
+  "left_frac": 0.0,
+  "right_frac": 0.0
+ },
+ "shots": [
+  {
+   "index": 0,
+   "start_frame": 0,
+   "end_frame": 67,
+   "duration_s": 2.233,
+   "transition_in": null,
+   "motion": {
+    "energy_mean": 0.00794,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      0.4415,
+      0.50349,
+      0.20887,
+      0.3869,
+      0.35404,
+      0.24203,
+      0.03602
+     ]
+    },
+    "zoom_total": -0.184,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      -0.05592,
+      -0.15927,
+      -0.21604,
+      -0.21441,
+      -0.1926,
+      -0.20007,
+      -0.18404
+     ]
+    },
+    "pan_x": 0.3226,
+    "pan_y": 0.0043,
+    "rotation_deg": -1.64,
+    "shake": 0.00324,
+    "motion_type": "mixed",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "ramp_down",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.04881,
+      1.52378,
+      1.37308,
+      0.70159,
+      0.92847,
+      0.85684,
+      0.84028,
+      0.52478
+     ]
+    },
+    "frozen_ratio": 0.045,
+    "variation": 0.354,
+    "confidence": 0.5
+   },
+   "appearance": {
+    "mean_luma": 76.3,
+    "contrast": 70.2,
+    "saturation": 83.3,
+    "sharpness": 1740.6
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 1,
+   "start_frame": 67,
+   "end_frame": 102,
+   "duration_s": 1.167,
+   "transition_in": {
+    "type": "cut",
+    "start_frame": 67,
+    "end_frame": 68,
+    "cut_frame": 67,
+    "intensity": 1.0,
+    "blur_kind": "none",
+    "peak_luma": null,
+    "beat_offset_ms": -88.7,
+    "beat_index": 3.834
+   },
+   "motion": {
+    "energy_mean": 0.00132,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.3602,
+      0.05146,
+      0.05582,
+      0.04862,
+      0.04584,
+      0.04605,
+      0.03713,
+      0.04189
+     ]
+    },
+    "zoom_total": 0.0427,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      0.01681,
+      0.02781,
+      0.03483,
+      0.03658,
+      0.03852,
+      0.04012,
+      0.04274
+     ]
+    },
+    "pan_x": -0.0178,
+    "pan_y": -0.0047,
+    "rotation_deg": -0.87,
+    "shake": 0.00028,
+    "motion_type": "static",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "ramp_down",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      4.32591,
+      0.95861,
+      0.97971,
+      0.83643,
+      0.71665,
+      0.70368,
+      0.59159,
+      0.66413
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.751,
+    "confidence": 0.5
+   },
+   "appearance": {
+    "mean_luma": 62.1,
+    "contrast": 49.4,
+    "saturation": 106.0,
+    "sharpness": 1564.1
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 2,
+   "start_frame": 102,
+   "end_frame": 138,
+   "duration_s": 1.2,
+   "transition_in": {
+    "type": "cut",
+    "start_frame": 102,
+    "end_frame": 103,
+    "cut_frame": 102,
+    "intensity": 1.0,
+    "blur_kind": "none",
+    "peak_luma": null,
+    "beat_offset_ms": -59.8,
+    "beat_index": 5.893
+   },
+   "motion": {
+    "energy_mean": 0.00134,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.05671,
+      0.0433,
+      0.0528,
+      0.06637,
+      0.06376,
+      0.06358,
+      0.03633,
+      0.04361
+     ]
+    },
+    "zoom_total": 0.0574,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      0.01043,
+      0.02268,
+      0.03376,
+      0.04251,
+      0.05012,
+      0.05416,
+      0.05743
+     ]
+    },
+    "pan_x": -0.012,
+    "pan_y": 0.0257,
+    "rotation_deg": -3.03,
+    "shake": 0.0005,
+    "motion_type": "static",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "flat",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      1.0339,
+      1.08205,
+      1.04529,
+      1.11568,
+      1.15214,
+      1.02461,
+      0.70865,
+      0.69083
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.178,
+    "confidence": 0.5
+   },
+   "appearance": {
+    "mean_luma": 63.9,
+    "contrast": 42.2,
+    "saturation": 93.8,
+    "sharpness": 1505.3
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 3,
+   "start_frame": 138,
+   "end_frame": 170,
+   "duration_s": 1.067,
+   "transition_in": {
+    "type": "cut",
+    "start_frame": 138,
+    "end_frame": 139,
+    "cut_frame": 138,
+    "intensity": 1.0,
+    "blur_kind": "none",
+    "peak_luma": null,
+    "beat_offset_ms": 2.4,
+    "beat_index": 8.004
+   },
+   "motion": {
+    "energy_mean": 0.00906,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.00778,
+      0.25216,
+      0.34398,
+      0.17654,
+      0.29342,
+      0.64512,
+      0.42651,
+      0.02342
+     ]
+    },
+    "zoom_total": 0.1274,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      0.01679,
+      0.04552,
+      0.08302,
+      0.10017,
+      0.08316,
+      0.06513,
+      0.12744
+     ]
+    },
+    "pan_x": 0.155,
+    "pan_y": -0.0122,
+    "rotation_deg": 9.26,
+    "shake": 0.00414,
+    "motion_type": "mixed",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "ramp_up",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.63833,
+      0.88654,
+      0.78263,
+      0.54979,
+      0.86916,
+      1.50211,
+      1.50285,
+      0.86684
+     ]
+    },
+    "frozen_ratio": 0.129,
+    "variation": 0.355,
+    "confidence": 0.5
+   },
+   "appearance": {
+    "mean_luma": 74.1,
+    "contrast": 49.3,
+    "saturation": 73.9,
+    "sharpness": 2906.6
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 4,
+   "start_frame": 170,
+   "end_frame": 188,
+   "duration_s": 0.6,
+   "transition_in": {
+    "type": "cut",
+    "start_frame": 170,
+    "end_frame": 171,
+    "cut_frame": 170,
+    "intensity": 1.0,
+    "blur_kind": "none",
+    "peak_luma": null,
+    "beat_offset_ms": -45.4,
+    "beat_index": 9.915
+   },
+   "motion": {
+    "energy_mean": 0.00842,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.63503,
+      0.33564,
+      0.2506,
+      0.21293,
+      0.18232,
+      0.2255,
+      0.33749,
+      0.77498
+     ]
+    },
+    "zoom_total": -0.4368,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      -0.09399,
+      -0.14792,
+      -0.18589,
+      -0.21885,
+      -0.2566,
+      -0.31347,
+      -0.43677
+     ]
+    },
+    "pan_x": -0.0023,
+    "pan_y": -0.076,
+    "rotation_deg": 0.77,
+    "shake": 0.00112,
+    "motion_type": "zoom_out",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "valley_middle",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      1.64902,
+      1.15906,
+      0.76944,
+      0.62564,
+      0.58603,
+      0.70602,
+      1.16806,
+      1.87
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.41,
+    "confidence": 0.42
+   },
+   "appearance": {
+    "mean_luma": 42.8,
+    "contrast": 39.3,
+    "saturation": 129.9,
+    "sharpness": 646.3
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 5,
+   "start_frame": 188,
+   "end_frame": 205,
+   "duration_s": 0.567,
+   "transition_in": {
+    "type": "blur",
+    "start_frame": 188,
+    "end_frame": 190,
+    "cut_frame": 188,
+    "intensity": 0.681,
+    "blur_kind": "radial",
+    "peak_luma": null,
+    "beat_offset_ms": -25.9,
+    "beat_index": 10.955
+   },
+   "motion": {
+    "energy_mean": 0.0126,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.66595,
+      0.40787,
+      0.48475,
+      0.46745,
+      0.35092,
+      0.3729,
+      0.53985,
+      0.94216
+     ]
+    },
+    "zoom_total": -0.4699,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      -0.08212,
+      -0.12776,
+      -0.16713,
+      -0.21188,
+      -0.26508,
+      -0.33894,
+      -0.46986
+     ]
+    },
+    "pan_x": 0.0437,
+    "pan_y": -0.094,
+    "rotation_deg": -6.28,
+    "shake": 0.00205,
+    "motion_type": "zoom_out",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "flat",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      1.12756,
+      0.97316,
+      0.88901,
+      0.85204,
+      0.7842,
+      0.82383,
+      1.18347,
+      1.60473
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.233,
+    "confidence": 0.38
+   },
+   "appearance": {
+    "mean_luma": 64.8,
+    "contrast": 62.9,
+    "saturation": 128.2,
+    "sharpness": 953.1
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 6,
+   "start_frame": 205,
+   "end_frame": 221,
+   "duration_s": 0.533,
+   "transition_in": {
+    "type": "blur",
+    "start_frame": 205,
+    "end_frame": 209,
+    "cut_frame": 205,
+    "intensity": 0.882,
+    "blur_kind": "radial",
+    "peak_luma": null,
+    "beat_offset_ms": -16.6,
+    "beat_index": 11.97
+   },
+   "motion": {
+    "energy_mean": 0.00756,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.40255,
+      0.3079,
+      0.22828,
+      0.18692,
+      0.1921,
+      0.24184,
+      0.35179,
+      0.58441
+     ]
+    },
+    "zoom_total": -0.2661,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      -0.03273,
+      -0.05699,
+      -0.07936,
+      -0.10408,
+      -0.13642,
+      -0.18432,
+      -0.26607
+     ]
+    },
+    "pan_x": 0.0132,
+    "pan_y": 0.0087,
+    "rotation_deg": -6.13,
+    "shake": 0.00058,
+    "motion_type": "zoom_out",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "flat",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      1.21162,
+      1.02068,
+      0.80225,
+      0.67853,
+      0.69463,
+      0.8781,
+      1.2701,
+      1.63513
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.298,
+    "confidence": 0.3
+   },
+   "appearance": {
+    "mean_luma": 69.7,
+    "contrast": 56.7,
+    "saturation": 111.6,
+    "sharpness": 540.7
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 7,
+   "start_frame": 221,
+   "end_frame": 239,
+   "duration_s": 0.6,
+   "transition_in": {
+    "type": "blur",
+    "start_frame": 221,
+    "end_frame": 225,
+    "cut_frame": 221,
+    "intensity": 0.875,
+    "blur_kind": "radial",
+    "peak_luma": null,
+    "beat_offset_ms": -63.7,
+    "beat_index": 12.89
+   },
+   "motion": {
+    "energy_mean": 0.00707,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.34505,
+      0.22625,
+      0.18037,
+      0.17288,
+      0.18915,
+      0.24396,
+      0.36893,
+      0.65919
+     ]
+    },
+    "zoom_total": -0.3434,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      -0.05083,
+      -0.08391,
+      -0.11182,
+      -0.14133,
+      -0.18017,
+      -0.23753,
+      -0.34344
+     ]
+    },
+    "pan_x": -0.016,
+    "pan_y": -0.0059,
+    "rotation_deg": 3.17,
+    "shake": 0.00058,
+    "motion_type": "zoom_out",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "ramp_up",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      1.0754,
+      0.86045,
+      0.67261,
+      0.63348,
+      0.70962,
+      0.93442,
+      1.44877,
+      1.98157
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.407,
+    "confidence": 0.35
+   },
+   "appearance": {
+    "mean_luma": 72.5,
+    "contrast": 56.3,
+    "saturation": 81.1,
+    "sharpness": 647.0
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 8,
+   "start_frame": 239,
+   "end_frame": 256,
+   "duration_s": 0.567,
+   "transition_in": {
+    "type": "cut",
+    "start_frame": 239,
+    "end_frame": 240,
+    "cut_frame": 239,
+    "intensity": 1.0,
+    "blur_kind": "none",
+    "peak_luma": null,
+    "beat_offset_ms": -21.0,
+    "beat_index": 13.962
+   },
+   "motion": {
+    "energy_mean": 0.00806,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.55138,
+      0.36581,
+      0.25508,
+      0.1909,
+      0.16369,
+      0.21181,
+      0.31938,
+      0.72069
+     ]
+    },
+    "zoom_total": 0.3466,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      0.0752,
+      0.11192,
+      0.13671,
+      0.15958,
+      0.18954,
+      0.23786,
+      0.34655
+     ]
+    },
+    "pan_x": 0.0573,
+    "pan_y": 0.1003,
+    "rotation_deg": 3.86,
+    "shake": 0.00079,
+    "motion_type": "zoom_in",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "valley_middle",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      1.52101,
+      1.17319,
+      0.83041,
+      0.61848,
+      0.56094,
+      0.69377,
+      1.20793,
+      1.84647
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.399,
+    "confidence": 0.4
+   },
+   "appearance": {
+    "mean_luma": 36.2,
+    "contrast": 42.4,
+    "saturation": 215.3,
+    "sharpness": 567.0
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 9,
+   "start_frame": 256,
+   "end_frame": 272,
+   "duration_s": 0.533,
+   "transition_in": {
+    "type": "cut",
+    "start_frame": 256,
+    "end_frame": 257,
+    "cut_frame": 256,
+    "intensity": 1.0,
+    "blur_kind": "none",
+    "peak_luma": null,
+    "beat_offset_ms": -34.8,
+    "beat_index": 14.94
+   },
+   "motion": {
+    "energy_mean": 0.00756,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.76251,
+      0.38761,
+      0.24253,
+      0.18084,
+      0.16619,
+      0.18504,
+      0.24414,
+      0.38825
+     ]
+    },
+    "zoom_total": 0.371,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      0.11317,
+      0.16915,
+      0.20485,
+      0.2347,
+      0.26559,
+      0.3055,
+      0.37099
+     ]
+    },
+    "pan_x": 0.0478,
+    "pan_y": 0.0025,
+    "rotation_deg": -0.64,
+    "shake": 0.00044,
+    "motion_type": "zoom_in",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "valley_middle",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      2.10231,
+      1.4871,
+      0.88706,
+      0.64161,
+      0.58084,
+      0.64993,
+      0.88435,
+      1.12745
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.457,
+    "confidence": 0.35
+   },
+   "appearance": {
+    "mean_luma": 59.3,
+    "contrast": 43.4,
+    "saturation": 96.3,
+    "sharpness": 218.5
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 10,
+   "start_frame": 272,
+   "end_frame": 343,
+   "duration_s": 2.367,
+   "transition_in": {
+    "type": "blur",
+    "start_frame": 271,
+    "end_frame": 274,
+    "cut_frame": 272,
+    "intensity": 0.871,
+    "blur_kind": "radial",
+    "peak_luma": null,
+    "beat_offset_ms": -58.8,
+    "beat_index": 15.895
+   },
+   "motion": {
+    "energy_mean": 0.01099,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.5752,
+      0.14686,
+      0.56681,
+      0.50859,
+      0.26143,
+      0.31382,
+      0.47013,
+      0.75957
+     ]
+    },
+    "zoom_total": 0.0187,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      0.18856,
+      0.47179,
+      0.68674,
+      0.795,
+      0.63452,
+      0.31065,
+      0.01871
+     ]
+    },
+    "pan_x": 0.078,
+    "pan_y": -0.0074,
+    "rotation_deg": -1.19,
+    "shake": 0.00292,
+    "motion_type": "pan",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "ramp_up",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      1.08734,
+      0.36865,
+      1.39569,
+      1.14146,
+      0.66235,
+      0.79447,
+      1.021,
+      1.55826
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.463,
+    "confidence": 0.5
+   },
+   "appearance": {
+    "mean_luma": 42.7,
+    "contrast": 44.9,
+    "saturation": 138.1,
+    "sharpness": 643.7
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 11,
+   "start_frame": 343,
+   "end_frame": 359,
+   "duration_s": 0.533,
+   "transition_in": {
+    "type": "blur",
+    "start_frame": 342,
+    "end_frame": 346,
+    "cut_frame": 343,
+    "intensity": 0.828,
+    "blur_kind": "radial",
+    "peak_luma": null,
+    "beat_offset_ms": 32.3,
+    "beat_index": 20.058
+   },
+   "motion": {
+    "energy_mean": 0.00828,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.43316,
+      0.32841,
+      0.23914,
+      0.18762,
+      0.19439,
+      0.25251,
+      0.39006,
+      0.77983
+     ]
+    },
+    "zoom_total": -0.3206,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      -0.03896,
+      -0.06624,
+      -0.09006,
+      -0.1172,
+      -0.15301,
+      -0.20955,
+      -0.3206
+     ]
+    },
+    "pan_x": 0.0153,
+    "pan_y": 0.0099,
+    "rotation_deg": -6.79,
+    "shake": 0.00059,
+    "motion_type": "zoom_out",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "valley_middle",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      1.18478,
+      0.98589,
+      0.75443,
+      0.61838,
+      0.63318,
+      0.84106,
+      1.36364,
+      1.90574
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.387,
+    "confidence": 0.33
+   },
+   "appearance": {
+    "mean_luma": 69.8,
+    "contrast": 56.2,
+    "saturation": 112.0,
+    "sharpness": 522.3
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 12,
+   "start_frame": 359,
+   "end_frame": 376,
+   "duration_s": 0.567,
+   "transition_in": {
+    "type": "blur",
+    "start_frame": 359,
+    "end_frame": 363,
+    "cut_frame": 359,
+    "intensity": 0.897,
+    "blur_kind": "radial",
+    "peak_luma": null,
+    "beat_offset_ms": 8.4,
+    "beat_index": 21.016
+   },
+   "motion": {
+    "energy_mean": 0.00655,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.29969,
+      0.21152,
+      0.17694,
+      0.17006,
+      0.18752,
+      0.23595,
+      0.33738,
+      0.54311
+     ]
+    },
+    "zoom_total": -0.2952,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      -0.04226,
+      -0.07242,
+      -0.09831,
+      -0.12603,
+      -0.16148,
+      -0.2115,
+      -0.29521
+     ]
+    },
+    "pan_x": -0.0163,
+    "pan_y": -0.0052,
+    "rotation_deg": 2.76,
+    "shake": 0.00042,
+    "motion_type": "zoom_out",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "ramp_up",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      1.0246,
+      0.86379,
+      0.71539,
+      0.68472,
+      0.76082,
+      0.97719,
+      1.39483,
+      1.7972
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.342,
+    "confidence": 0.33
+   },
+   "appearance": {
+    "mean_luma": 72.5,
+    "contrast": 57.7,
+    "saturation": 81.5,
+    "sharpness": 660.5
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 13,
+   "start_frame": 376,
+   "end_frame": 394,
+   "duration_s": 0.6,
+   "transition_in": {
+    "type": "glitch",
+    "start_frame": 376,
+    "end_frame": 379,
+    "cut_frame": 376,
+    "intensity": 1.0,
+    "blur_kind": "none",
+    "peak_luma": null,
+    "beat_offset_ms": 64.2,
+    "beat_index": 22.132
+   },
+   "motion": {
+    "energy_mean": 0.00819,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.4163,
+      0.28257,
+      0.20256,
+      0.16893,
+      0.17054,
+      0.24307,
+      0.40413,
+      0.95963
+     ]
+    },
+    "zoom_total": 0.3215,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      0.04313,
+      0.07004,
+      0.0905,
+      0.1145,
+      0.14651,
+      0.20165,
+      0.32149
+     ]
+    },
+    "pan_x": 0.0413,
+    "pan_y": 0.0961,
+    "rotation_deg": 3.49,
+    "shake": 0.00081,
+    "motion_type": "zoom_in",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "valley_middle",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      1.12172,
+      0.88911,
+      0.66445,
+      0.54498,
+      0.57134,
+      0.79163,
+      1.51301,
+      2.35409
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.525,
+    "confidence": 0.38
+   },
+   "appearance": {
+    "mean_luma": 36.4,
+    "contrast": 40.2,
+    "saturation": 219.4,
+    "sharpness": 561.3
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 14,
+   "start_frame": 394,
+   "end_frame": 409,
+   "duration_s": 0.5,
+   "transition_in": {
+    "type": "cut",
+    "start_frame": 394,
+    "end_frame": 395,
+    "cut_frame": 394,
+    "intensity": 1.0,
+    "blur_kind": "none",
+    "peak_luma": null,
+    "beat_offset_ms": 176.6,
+    "beat_index": 23.304
+   },
+   "motion": {
+    "energy_mean": 0.00707,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.70924,
+      0.35859,
+      0.22853,
+      0.17996,
+      0.16294,
+      0.18231,
+      0.22719,
+      0.34952
+     ]
+    },
+    "zoom_total": 0.3221,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      0.09549,
+      0.14342,
+      0.17597,
+      0.20398,
+      0.23249,
+      0.26797,
+      0.32209
+     ]
+    },
+    "pan_x": 0.0434,
+    "pan_y": 0.003,
+    "rotation_deg": -0.58,
+    "shake": 0.0004,
+    "motion_type": "zoom_in",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "ramp_down",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      2.03236,
+      1.45425,
+      0.90155,
+      0.67216,
+      0.61979,
+      0.67588,
+      0.869,
+      1.0702
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.427,
+    "confidence": 0.33
+   },
+   "appearance": {
+    "mean_luma": 59.4,
+    "contrast": 43.4,
+    "saturation": 98.4,
+    "sharpness": 226.9
+   },
+   "reuses_shot": null
+  },
+  {
+   "index": 15,
+   "start_frame": 409,
+   "end_frame": 422,
+   "duration_s": 0.433,
+   "transition_in": {
+    "type": "blur",
+    "start_frame": 408,
+    "end_frame": 411,
+    "cut_frame": 409,
+    "intensity": 0.815,
+    "blur_kind": "radial",
+    "peak_luma": null,
+    "beat_offset_ms": 96.1,
+    "beat_index": 24.0
+   },
+   "motion": {
+    "energy_mean": 0.00638,
+    "energy_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.68871,
+      0.38096,
+      0.25149,
+      0.19539,
+      0.16137,
+      0.13904,
+      0.13828,
+      0.14778
+     ]
+    },
+    "zoom_total": 0.2245,
+    "zoom_curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      0.0,
+      0.07635,
+      0.11935,
+      0.1485,
+      0.17044,
+      0.18892,
+      0.20635,
+      0.22449
+     ]
+    },
+    "pan_x": 0.0209,
+    "pan_y": 0.0605,
+    "rotation_deg": 0.65,
+    "shake": 0.00073,
+    "motion_type": "zoom_in",
+    "confidence": 1.0
+   },
+   "speed": {
+    "shape": "ramp_down",
+    "curve": {
+     "t": [
+      0.0,
+      0.1429,
+      0.2857,
+      0.4286,
+      0.5714,
+      0.7143,
+      0.8571,
+      1.0
+     ],
+     "v": [
+      2.18759,
+      1.67728,
+      1.12111,
+      0.80773,
+      0.65559,
+      0.58001,
+      0.55575,
+      0.5603
+     ]
+    },
+    "frozen_ratio": 0.0,
+    "variation": 0.551,
+    "confidence": 0.28
+   },
+   "appearance": {
+    "mean_luma": 28.5,
+    "contrast": 38.5,
+    "saturation": 152.5,
+    "sharpness": 674.4
+   },
+   "reuses_shot": null
+  }
+ ],
+ "fx_events": [],
+ "audio": {
+  "has_audio": true,
+  "bpm": 107.7,
+  "beats": [
+   0.116,
+   0.65,
+   1.207,
+   1.788,
+   2.322,
+   2.902,
+   3.46,
+   4.04,
+   4.598,
+   5.178,
+   5.712,
+   6.293,
+   6.85,
+   7.43,
+   7.988,
+   8.568,
+   9.125,
+   9.683,
+   10.24,
+   10.82,
+   11.401,
+   11.958,
+   12.469,
+   12.957,
+   13.537
+  ],
+  "downbeats_hint": [],
+  "onsets": [
+   0.093,
+   0.325,
+   0.441,
+   0.65,
+   0.882,
+   1.207,
+   1.486,
+   1.788,
+   1.881,
+   2.02,
+   2.322,
+   2.624,
+   2.902,
+   3.042,
+   3.158,
+   3.39,
+   3.46,
+   3.738,
+   4.04,
+   4.156,
+   4.272,
+   4.574,
+   4.876,
+   5.155,
+   5.433,
+   5.596,
+   5.712,
+   6.014,
+   6.153,
+   6.571,
+   6.85,
+   7.012,
+   7.152,
+   7.407,
+   7.709,
+   7.988,
+   8.29,
+   8.406,
+   8.824,
+   9.102,
+   9.404,
+   9.683,
+   9.961,
+   10.24,
+   10.542,
+   10.681,
+   10.937,
+   11.099,
+   11.378,
+   11.68,
+   11.935,
+   12.074,
+   12.237,
+   12.516,
+   12.817,
+   12.934,
+   13.096,
+   13.375,
+   13.653,
+   13.793,
+   13.932
+  ],
+  "cut_beat_alignment": 0.8,
+  "chance_alignment": 0.249,
+  "cut_interval_beats": 1.047
+ },
+ "signature": {
+  "n_shots": 16,
+  "cuts_per_second": 1.066,
+  "median_shot_s": 0.583,
+  "shot_s_p10": 0.516,
+  "shot_s_p90": 1.716,
+  "transition_counts": {
+   "cut": 7,
+   "blur": 7,
+   "glitch": 1
+  },
+  "transition_ratio": 0.533,
+  "motion_energy_mean": 0.0074,
+  "motion_energy_cv": 0.373,
+  "zoom_active_ratio": 0.812,
+  "speed_dynamic_ratio": 0.812,
+  "frozen_ratio_mean": 0.011,
+  "fx_events_per_second": 0.0
+ },
+ "warnings": [
+  "aspecto 368x368 (square) difere de 9:16; análise ok, saída será 9:16",
+  "referência curta (14.1s); alvo do produto é 25-30 s"
+ ]
+}
