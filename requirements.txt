@@ -1,0 +1,26 @@
+scenedetect[opencv]
+opencv-python
+librosa
+numpy
+Pillow
+
+# Opcional — deteção de texto/legendas na referência (src/overlay_detect.py).
+# O pacote pip sozinho não chega: precisa também do motor Tesseract-OCR
+# instalado no sistema (ver README, secção "Edit DNA"). Se não o
+# instalares, o resto do pipeline continua a funcionar normalmente —
+# esta deteção fica só desativada (config.USE_OVERLAY_DETECTION = False).
+pytesseract
+
+# Opcional — AI Analyzer (src/ai_analyzer.py): julgamento por IA de
+# movimento de câmera/cor/ritmo no Refinamento Iterativo. Precisa
+# também de ANTHROPIC_API_KEY definida no ambiente (ver README) e
+# CUSTA DINHEIRO por chamada — vem desligado por padrão
+# (config.USE_AI_ANALYZER = False).
+anthropic
+
+# Opcional — AI Subject Boost (src/subject_detect.py) e Zoom
+# Subject-Locked (src/zoom.py, config.USE_SUBJECT_LOCKED_ZOOM). Precisa
+# também de um modelo .tflite (ver README/config.SUBJECT_SEGMENTER_MODEL_PATH)
+# que o pip sozinho não instala. Sem isto, ambas as funcionalidades
+# ficam automaticamente desativadas (fallback), sem travar o pipeline.
+mediapipe
