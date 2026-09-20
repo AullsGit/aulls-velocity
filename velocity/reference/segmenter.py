@@ -145,8 +145,17 @@ def _classify_span(rgb, sig: Signals, a: int, b: int, p: SegmenterParams):
     n = sig.n
     lo, hi = max(0, a - 4), min(n, b + 5)
     idx = np.arange(a, b + 1)
-    base_lum = float(np.median(np.concatenate([sig.lum[lo:a], sig.lum[b + 1 : hi]])) if (a > lo or b + 1 < hi) else sig.lum[a])
-    ln_sharp_base = float(np.median(np.log(np.maximum(np.concatenate([sig.sharp[lo:a], sig.sharp[b + 1 : hi]]), 1.0)))) if (a > lo or b + 1 < hi) else float(np.log(max(sig.sharp[a], 1.0)))
+    def _side(x, lo_, hi_, fn):
+        return float(fn(x[lo_:hi_])) if hi_ > lo_ else None
+
+    lum_b = _side(sig.lum, lo, a, np.median)
+    lum_a = _side(sig.lum, b + 1, hi, np.median)
+    sides = [v for v in (lum_b, lum_a) if v is not None] or [float(sig.lum[a])]
+    base_hi, base_lo = max(sides), min(sides)  # um flash tem de exceder AMBOS os lados; um dip ficar abaixo de ambos
+    base_lum = float(np.mean(sides))
+    sharp_sides = [_side(np.log(np.maximum(sig.sharp, 1.0)), lo, a, np.median), _side(np.log(np.maximum(sig.sharp, 1.0)), b + 1, hi, np.median)]
+    sharp_sides = [v for v in sharp_sides if v is not None] or [float(np.log(max(sig.sharp[a], 1.0)))]
+    ln_sharp_base = float(min(sharp_sides))  # base = o lado MENOS nítido (evita chamar 'blur' a uma troca nítido->suave)
     span_lum = sig.lum[idx]
     peak_lum, min_lum = float(span_lum.max()), float(span_lum.min())
     clip_peak = float(sig.clip_hi[idx].max())
@@ -154,18 +163,18 @@ def _classify_span(rgb, sig: Signals, a: int, b: int, p: SegmenterParams):
     sharp_ratio = float(np.exp(np.log(max(sharp_min, 1.0)) - ln_sharp_base))
     d_peak = float(sig.d[idx].max())
 
-    flash = (peak_lum - base_lum) >= p.flash_lum_rise or (clip_peak >= p.flash_clip_hi and peak_lum - base_lum > 20)
-    dip = min_lum <= p.dip_lum_max and base_lum > 45
+    flash = (peak_lum - base_hi) >= p.flash_lum_rise or (clip_peak >= p.flash_clip_hi and peak_lum - base_hi > 20)
+    dip = min_lum <= p.dip_lum_max and base_lo > 45
     blur = sharp_ratio <= p.blur_ratio_max and (b - a + 1) >= 2
 
-    if flash and (not dip or (peak_lum - base_lum) >= (base_lum - min_lum)):
+    if flash and (not dip or (peak_lum - base_hi) >= (base_lo - min_lum)):
         t = "flash"
         cut = a + int(np.argmax(span_lum))
-        intensity = float(np.clip((peak_lum - base_lum) / max(255 - base_lum, 1.0), 0, 1))
+        intensity = float(np.clip((peak_lum - base_hi) / max(255 - base_hi, 1.0), 0, 1))
     elif dip:
         t = "dip_black"
         cut = a + int(np.argmin(span_lum))
-        intensity = float(np.clip(1 - min_lum / max(base_lum, 1.0), 0, 1))
+        intensity = float(np.clip(1 - min_lum / max(base_lo, 1.0), 0, 1))
     elif blur:
         t = "blur"
         cut = a + int(np.argmin(sig.sharp[idx]))
