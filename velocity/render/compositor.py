@@ -128,6 +128,8 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None):
             if k not in mask_win:
                 mask_win[k] = _fit_mask(mask_arr[k], W, H)
             al = cv2.warpAffine(mask_win[k], m, (tl.width, tl.height), flags=cv2.INTER_LINEAR)
+            er = max(3, int(0.012 * tl.width) | 1)  # erosão: a máscara do modelo é generosa e apanha céu (contorno claro)
+            al = cv2.erode(al, np.ones((er, er), np.uint8))
             al = cv2.GaussianBlur(al, (0, 0), max(1.0, 0.008 * tl.width))
             if clip.flip:
                 al = al[:, ::-1]

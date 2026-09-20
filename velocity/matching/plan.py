@@ -34,7 +34,7 @@ def tone_for(sh, c: ClipProfile, m: Match, strength: float, ref_sharp: float = 5
         s_cur = float(np.clip(np.nanmean(c.subj_lum[win]), 8.0, 247.0))
         b_cur = float(np.clip(c.bg_lum[win].mean(), 8.0, 247.0))
         g_bg = np.log(tgt_l / 255.0) / np.log(b_cur / 255.0)
-        out["bg_gamma"] = round(float(np.clip(g_bg ** strength, 0.6, 2.2)), 3)
+        out["bg_gamma"] = round(float(np.clip(g_bg ** strength, 0.6, 3.2)), 3)
         floor = float(np.clip(0.5 * tgt_l + 35.0, 55.0, 100.0))  # sujeito visível: ~55 em refs escuras, até 100 em claras
         if s_cur < floor:
             out["subj_gamma"] = round(float(np.clip(np.log(floor / 255.0) / np.log(s_cur / 255.0), 0.45, 1.0)), 3)

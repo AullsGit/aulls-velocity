@@ -43,12 +43,15 @@ def analyze_clip(path: str, locator: SubjectLocator | None = None) -> ClipProfil
     sig = compute_signals(fr.rgb, fr.fps)
     cam = np.hypot(sig.tx, sig.ty) + np.abs(sig.zoom)
     locator = locator or BackgroundSubtractionLocator()
-    loc = locator.locate(fr.rgb, cam)
-    masks = getattr(locator, "last_masks", None)
+    if hasattr(locator, "locate_video"):
+        loc, masks = locator.locate_video(path, fr.n, fr.rgb.shape[1], fr.rgb.shape[2])
+    else:
+        loc = locator.locate(fr.rgb, cam)
+        masks = getattr(locator, "last_masks", None)
     subj_lum = bg_lum = None
     if masks is not None:
         gray = fr.rgb.astype(np.float32).mean(axis=3)
-        m = masks > 0
+        m = masks > 127
         cnt_in, cnt_out = m.sum(axis=(1, 2)), (~m).sum(axis=(1, 2))
         subj_lum = np.where(cnt_in > 20, (gray * m).sum(axis=(1, 2)) / np.maximum(cnt_in, 1), np.nan)
         bg_lum = (gray * ~m).sum(axis=(1, 2)) / np.maximum(cnt_out, 1)

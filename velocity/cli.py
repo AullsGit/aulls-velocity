@@ -47,7 +47,12 @@ def cmd_make(a):
     if not det.is_velocity and not a.force:
         log("Referência NÃO parece um Velocity suportado. Use --force para continuar mesmo assim.")
         return 2
-    clips = [analyze_clip(p) for p in a.clips]
+    locator = None
+    if a.subject_enhance:
+        from velocity.media.segment import PersonSegmenter
+        locator = PersonSegmenter()
+        log(f"segmentador de pessoas em {locator.device} (primeira análise de cada clip fica em cache)")
+    clips = [analyze_clip(p, locator) for p in a.clips]
     log(f"material: {len(clips)} clips, {sum(c.duration_s for c in clips):.1f}s no total")
     w = MatchWeights()
     ms = match(dna, clips, w)
