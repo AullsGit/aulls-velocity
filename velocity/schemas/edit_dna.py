@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-SCHEMA_VERSION = "1.2"
+SCHEMA_VERSION = "1.3"
 
 TransitionType = Literal["cut", "flash", "dip_black", "blur", "glitch"]
 BlurKind = Literal["none", "horizontal", "vertical", "radial"]
@@ -180,6 +180,22 @@ class VibeProfile(BaseModel):
     descriptors: list[str] = []
 
 
+class TextEvent(BaseModel):
+    """Texto criativo na referência (marcas de água excluídas). O CONTEÚDO não se copia: só o quando/onde/como."""
+
+    start_frame: int
+    end_frame: int
+    x: float  # centro (fração da largura)
+    y: float  # centro (fração da altura)
+    width: float  # fração da largura
+    height: float  # fração da altura (tamanho da fonte)
+    position: str  # top | center | bottom
+    entry: str = "none"  # pop (cresce ao entrar) | fade | none
+    on_beat: bool | None = None
+    n_chars: int = 0
+    confidence: float = 0.5
+
+
 class AudioDNA(BaseModel):
     has_audio: bool
     bpm: float | None = None
@@ -232,6 +248,7 @@ class EditDNA(BaseModel):
     effects: list[EffectTrack] = []
     look: LookProfile | None = None
     vibe: VibeProfile | None = None
+    text_events: list[TextEvent] = []
     audio: AudioDNA
     signature: Signature
     warnings: list[str] = []

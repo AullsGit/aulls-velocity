@@ -52,3 +52,21 @@ Bloqueio de hardware: GPU limitada a 10 W (limite 60 W) pelo modo do portátil (
 3) `--sr` EXPERIMENTAL (Real-ESRGAN general x4v3 via spandrel, `bench/models/`): só em planos com ampliação >=1.5x; SR limitada ao mín/máx local
    da bicúbica e misturada 75/25 (sem halo/plástico, validado em A/B visual). Custo: ~2.6 s/frame com a GPU a 10 W (deve ser ~10x menos a 60 W).
 Nota: nvidia-smi bloqueia enquanto a GPU está sob carga; benchmark de GPU tem de sincronizar (torch.cuda.synchronize) com nº fixo de operações.
+
+## Atualização — Professional Velocity Engine (2026-09-21)
+Novo: `VibeProfile` no DNA v1.3 (agressividade, suavidade, calma, curva de energia a 4 Hz, impactos, descansos, arco, densidades,
+vocabulário, relação com a música); detetor v1 (também por efeitos densos sobre filmagem contínua); transições com **direção medida**
+(slide_left/right/up/down, zoom_in/out) e **envelopes medidos** (também nas faixas de efeito); matching v2 (papel impacto/descanso
+pela curva de energia, direção do sujeito, continuidade em cortes secos); `--text` condicionado à evidência (OCR, sem marcas de água,
+texto de cena filtrado por posição estável); log de decisões (`decisions` no relatório); autocorreção pela vibe ("exagerou -> reduz").
+Validações: `bench/look_eval.py` (18/18 suave/agressivo, EM AMOSTRA), `bench/detector_eval.py` (26/30 positivos, 5/5 negativos),
+`tests/test_transitions_roundtrip.py`, `tests/test_vibe_text.py`.
+
+Problemas abertos (por ordem de impacto):
+1. Referência de FILMAGEM ÚNICA com efeitos à batida (ex.: pro_01) é lida como multi-corte -> output alterna entre clips. Precisa de
+   embeddings visuais (CLIP/DINO) para decidir 'mesma filmagem'. Heurística de fundo testada e REJEITADA (não separa).
+2. Vocabulário de efeitos em falta: rotação, mudança de grade de cor, pixelização, picture-in-picture, faíscas/partículas, glow, cartões com perspetiva.
+3. Recorte/isolamento do sujeito como TRANSIÇÃO (máscaras, object wipes, sujeito como máscara) não implementado.
+4. Texto que aparece letra a letra e marcas de canal grandes escapam ao filtro do OCR.
+5. Impactos da curva de energia do output não alinham ao tempo dos da referência (0 de 5 em aggr_10), apesar de a curva correlacionar 0.74.
+6. GPU limitada a 10 W pelo portátil (NitroSense): segmentação ~0.55 s/frame, SR ~2.6 s/frame.

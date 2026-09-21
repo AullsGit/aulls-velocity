@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 
 from velocity.io.probe import probe
-from velocity.render import effects, fxstack, sr as srmod
+from velocity.render import effects, fxstack, sr as srmod, textfx
 from velocity.schemas.edit_dna import Curve
 from velocity.schemas.timeline import ClipUse, Timeline, TimelineShot
 
@@ -217,6 +217,8 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
                         mid = (ev.start_frame + ev.end_frame) // 2
                         amt = effects.envelope(f, ev.start_frame, mid, ev.end_frame)
                         img = effects.apply(img, ev.type, amt, ev.intensity, "radial", f)
+                for tx_ in tl.texts:
+                    img = textfx.draw(img, tx_, f)
                 if post_lut is not None:
                     img = cv2.LUT(img, post_lut)
                 if tl.post_sharp > 0.02:

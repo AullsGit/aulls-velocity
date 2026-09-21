@@ -9,6 +9,7 @@ from velocity.reference import audio as audio_mod
 from velocity.reference import shot_features as sf
 from velocity.reference.effects_detect import build_look, detect_effects
 from velocity.reference.vibe import build_vibe
+from velocity.reference import text_detect
 from velocity.reference.segmenter import SegmenterParams, segment
 from velocity.reference.signals import compute_signals, crop_letterbox, detect_letterbox
 from velocity.schemas.edit_dna import AudioDNA, EditDNA, Shot, Signature
@@ -42,7 +43,7 @@ def _signature(shots: list[Shot], fx_events, fps: float, duration_s: float) -> S
     )
 
 
-def analyze_reference(path: str, params: SegmenterParams | None = None, with_audio: bool = True) -> EditDNA:
+def analyze_reference(path: str, params: SegmenterParams | None = None, with_audio: bool = True, with_text: bool = True) -> EditDNA:
     info = probe(path)
     fr = load_frames(path, fps=FPS, width=192)
     lb = detect_letterbox(fr.rgb)
@@ -75,6 +76,8 @@ def analyze_reference(path: str, params: SegmenterParams | None = None, with_aud
     sig_tmp = _signature(shots, seg.fx_events, fr.fps, duration_s)
     vibe = build_vibe(sig, fr.fps, duration_s, seg.transitions, seg.fx_events, tracks, beats, audio.cut_beat_alignment, audio.chance_alignment, sig_tmp.zoom_active_ratio)
 
+    text_events = text_detect.detect_text(path, beats) if with_text else []
+
     warnings = []
     if abs(info.aspect - 9 / 16) > 0.06:
         warnings.append(f"aspecto {info.width}x{info.height} ({info.orientation}) difere de 9:16; análise ok, saída será 9:16")
@@ -87,6 +90,6 @@ def analyze_reference(path: str, params: SegmenterParams | None = None, with_aud
 
     return EditDNA(
         source_path=path, width=info.width, height=info.height, fps=fr.fps, n_frames=n, duration_s=round(duration_s, 3),
-        letterbox=lb, shots=shots, fx_events=seg.fx_events, effects=tracks, look=look, vibe=vibe, audio=audio,
+        letterbox=lb, shots=shots, fx_events=seg.fx_events, effects=tracks, look=look, vibe=vibe, text_events=text_events, audio=audio,
         signature=_signature(shots, seg.fx_events, fr.fps, duration_s), warnings=warnings,
     )

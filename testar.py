@@ -34,5 +34,10 @@ if use_music:
         print(f"Aviso: {len(music)} músicas encontradas; a usar {os.path.basename(music[0])}")
 if not use_music:
     args.append("--audio-ref")  # sem música do utilizador: usa o áudio da referência
+txt = os.path.join(T, "texto.txt")
+if os.path.exists(txt):
+    lines = [l.strip() for l in open(txt, encoding="utf-8") if l.strip()]
+    if lines:
+        args += ["--text", *lines]
 print(f"Referência: {os.path.basename(refs[0])} | {len(clips)} clip(s) | música: {os.path.basename(music[0]) if use_music else 'áudio da referência'}")
 sys.exit(main(args))

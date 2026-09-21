@@ -11,3 +11,6 @@ def pytest_collection_modifyitems(config, items):
         for it in items:
             if "bench" in it.keywords:
                 it.add_marker(skip)
+
+
+os.environ.setdefault("VELOCITY_NO_TEXT", "1")  # OCR só quando pedido (carrega modelos); os testes não precisam

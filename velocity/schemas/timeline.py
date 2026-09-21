@@ -35,6 +35,19 @@ class TimelineShot(BaseModel):
         return self.end_frame - self.start_frame
 
 
+class TextOverlay(BaseModel):
+    """Texto a desenhar (conteúdo fornecido PELO UTILIZADOR; quando/onde/como vêm da referência)."""
+
+    text: str
+    start_frame: int
+    end_frame: int
+    x: float
+    y: float
+    width: float  # largura máxima (fração da largura)
+    height: float  # altura da fonte (fração da altura)
+    entry: str = "none"  # pop | fade | none
+
+
 class Timeline(BaseModel):
     fps: float = 30.0
     width: int = 1080
@@ -42,6 +55,7 @@ class Timeline(BaseModel):
     n_frames: int
     shots: list[TimelineShot]
     fx_events: list[FxEvent] = []
+    texts: list[TextOverlay] = []
     effects: list[EffectTrack] = []  # efeitos paramétricos planeados (ver render/fxstack.py)
     fx_scale: float = 1.0  # alavanca global de intensidade (protetor de fidelidade)
     post_gamma: float = 1.0  # correção global de look (ciclo fechado), aplicada a todos os frames

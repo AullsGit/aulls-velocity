@@ -9,7 +9,7 @@ from velocity.matching.fx_plan import plan_effects
 from velocity.media.analyzer import ClipProfile
 from velocity.reference.audio import ALIGN_TOL_S, SR, _beat_analysis
 from velocity.schemas.edit_dna import Curve, EditDNA, Transition
-from velocity.schemas.timeline import ClipUse, Timeline, TimelineShot
+from velocity.schemas.timeline import ClipUse, TextOverlay, Timeline, TimelineShot
 
 MIN_SHOT = 4
 TONE_STRENGTH = 0.85  # 0 = não toca no tom do utilizador; 1 = aproxima totalmente da referência
@@ -101,7 +101,7 @@ def _retime_to_music(dna: EditDNA, music_path: str) -> tuple[list[int], float, d
 
 def build_timeline(dna: EditDNA, clips: list[ClipProfile], matches: list[Match], size=(1080, 1920),
                    music_path: str | None = None, weights: MatchWeights | None = None,
-                   zoom_gain: float = 1.0, fx: bool = True, fx_scale: float = 1.0, tone: float = TONE_STRENGTH, subject_enhance: bool = False, denoise: float = 0.0, sr: bool = False) -> tuple[Timeline, dict]:
+                   zoom_gain: float = 1.0, fx: bool = True, fx_scale: float = 1.0, tone: float = TONE_STRENGTH, subject_enhance: bool = False, denoise: float = 0.0, sr: bool = False, texts: list[str] | None = None) -> tuple[Timeline, dict]:
     w = weights or MatchWeights()
     cuts, offset, info = _retime_to_music(dna, music_path) if music_path else (dna.cut_frames(), 0.0, {"retimed": False})
     bounds = [0] + cuts + [dna.n_frames]
@@ -132,6 +132,7 @@ def build_timeline(dna: EditDNA, clips: list[ClipProfile], matches: list[Match],
             clip=ClipUse(source_path=c.path, src_start_s=m.start_frame / c.fps, speed=m.speed or Curve(t=[0, 1], v=[1, 1]),
                          zoom=Curve(t=list(zt), v=[round(float(v), 4) for v in z_abs]), center=center, pan=pan, **tn),
             transition_in=t_in))
+    fmap_text = lambda f: float(np.interp(f, [0] + dna.cut_frames() + [dna.n_frames], [0] + list(cuts) + [dna.n_frames]))  # noqa: E731
     effects, fx_info = plan_effects(dna, cuts) if fx else ([], {"desligado": True})
     info["fx"] = fx_info
     decisions.append({"what": "efeitos", "decision": fx_info, "why": "só se transfere o que foi MEDIDO na referência (regra da evidência)"})
@@ -140,8 +141,18 @@ def build_timeline(dna: EditDNA, clips: list[ClipProfile], matches: list[Match],
         decisions.append({"what": "vibe_alvo", "decision": vb.descriptors, "why": f"arco={vb.arc}, agressividade={vb.aggressiveness}, densidade de efeitos={vb.effect_density}/s, impactos={len(vb.impacts)}"})
     roles = [(m.shot_index, m.parts) for m in matches]
     decisions.append({"what": "matching", "decision": "custo por (ação/papel, forma, brilho, sujeito, direção, continuidade)", "why": "impacto->energia alta, descanso->energia baixa, direção do sujeito, match cut em cortes secos"})
+    overlays = []
+    if texts:
+        if not dna.text_events:
+            decisions.append({"what": "texto", "decision": "ignorado", "why": "a referência não tem texto sobreposto: não se acrescenta texto sem justificação"})
+        else:
+            for i, ev in enumerate(dna.text_events):
+                a_, b_ = int(round(fmap_text(ev.start_frame))), int(round(fmap_text(ev.end_frame)))
+                overlays.append(TextOverlay(text=texts[i % len(texts)], start_frame=a_, end_frame=max(b_, a_ + 6), x=ev.x, y=ev.y,
+                                            width=max(ev.width, 0.35), height=ev.height, entry=ev.entry))
+            decisions.append({"what": "texto", "decision": f"{len(overlays)} sobreposição(ões)", "why": "a referência tem texto sobreposto (timing/posição/tamanho/entrada copiados; conteúdo é seu)"})
     info["decisions"] = decisions
     tl = Timeline(fps=dna.fps, width=size[0], height=size[1], n_frames=dna.n_frames, shots=shots,
-                  fx_events=dna.fx_events, effects=effects, fx_scale=fx_scale, music_path=music_path,
+                  fx_events=dna.fx_events, texts=overlays, effects=effects, fx_scale=fx_scale, music_path=music_path,
                   music_offset_s=offset, zoom_gain=zoom_gain, denoise=denoise, sr=sr)
     return tl, info
