@@ -159,7 +159,10 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None):
             al = cv2.erode(al, np.ones((er, er), np.uint8))
             # filtro guiado: ajusta o alfa aos contornos REAIS da imagem (elimina o contorno claro/halo)
             guide = cv2.cvtColor(np.ascontiguousarray(out), cv2.COLOR_RGB2GRAY)
-            al = cv2.ximgproc.guidedFilter(guide, np.ascontiguousarray(al, dtype=np.float32), max(4, int(0.012 * tl.width)), 60.0)
+            try:
+                al = cv2.ximgproc.guidedFilter(guide, np.ascontiguousarray(al, dtype=np.float32), max(4, int(0.012 * tl.width)), 60.0)
+            except (AttributeError, cv2.error):  # OpenCV sem módulos contrib: degrada para suavização simples (sem crash)
+                al = cv2.GaussianBlur(np.ascontiguousarray(al, dtype=np.float32), (0, 0), max(1.0, 0.008 * tl.width))
             al = np.clip(al, 0.0, 1.0)
             if clip.flip:
                 al = al[:, ::-1]

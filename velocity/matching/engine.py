@@ -21,6 +21,7 @@ class MatchWeights:
     shape: float = 0.30  # forma temporal da energia (o "impacto" no sítio certo)
     brightness: float = 0.10
     direction: float = 0.08  # sentido do movimento do sujeito vs pan da referência
+    unstable: float = 0.6  # penalização por frames instáveis (transições/cortes do PRÓPRIO clip) na janela
     continuity: float = 0.15  # posição do sujeito contínua em cortes secos (match cut)
     subject: float = 0.20  # sujeito presente e bem localizado
     reuse: float = 0.10  # penalização por reutilizar material
@@ -108,8 +109,9 @@ def _cands(dna, clips, w, table, slots, ref_rank, imp, rest, K=30):
             n_need = min(need, c.n)
             cx = c.subj[:, 0]
             for i in range(0, max(1, c.n - n_need + 1), w.stride):
-                if c.bad[i: i + n_need].any():
-                    continue
+                bad_frac = float(c.bad[i: i + n_need].mean())
+                if bad_frac > 0.5:
+                    continue  # janela maioritariamente instável (blur/flash/corte do próprio clip)
                 e = c.energy[i: i + n_need]
                 sj = c.subj[i: i + n_need]
                 rank = float(np.searchsorted(table, e.mean()) / len(table))
@@ -125,7 +127,8 @@ def _cands(dna, clips, w, table, slots, ref_rank, imp, rest, K=30):
                 dir_cost = 0.0
                 if ref_dir != 0.0 and abs(vx) > 0.0015:
                     dir_cost = 0.0 if np.sign(vx) == ref_dir else 1.0  # movimento do sujeito no mesmo sentido do da referência
-                cost = (w.action * a_cost + w.shape * shape_cost + w.brightness * b_cost + w.subject * subj_cost + w.direction * dir_cost)
+                cost = (w.action * a_cost + w.shape * shape_cost + w.brightness * b_cost + w.subject * subj_cost + w.direction * dir_cost
+                        + w.unstable * bad_frac)  # prefere janelas limpas, mas aceita as outras se for preciso
                 lst.append({"ci": ci, "i": i, "n": n_need, "cost": cost, "cx0": float(cx[i]), "cx1": float(cx[min(i + n_need - 1, c.n - 1)]),
                             "parts": {"action": a_cost, "shape": shape_cost, "brightness": b_cost, "subject": subj_cost, "direction": dir_cost},
                             "freeze": need > c.n})
@@ -184,6 +187,8 @@ def match(dna: EditDNA, clips: list[ClipProfile], w: MatchWeights | None = None)
                 tot = c["cost"] + w.continuity * cont + pen
                 if best is None or tot < best[0]:
                     best = (tot, c)
+            if best is None:  # plano sem candidatos (só o fallback da fase 1): mantém
+                best = (0.0, cur)
             chosen[k] = best[1]
             used[best[1]["ci"]].append((best[1]["i"], best[1]["i"] + best[1]["n"]))
 
