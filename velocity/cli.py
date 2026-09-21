@@ -10,6 +10,7 @@ import time
 from velocity.detector.velocity_detector import detect
 from velocity.evaluate.effects_fidelity import compare_effects
 from velocity.evaluate.metrics import compare, compare_plan
+from velocity.evaluate.vibe_fidelity import compare_vibe
 from velocity.matching.engine import MatchWeights, match
 from velocity.matching.plan import build_timeline
 from velocity.media.analyzer import analyze_clip
@@ -91,6 +92,11 @@ def cmd_make(a):
             if lk_o.contrast > 1 and not 0.85 <= lk_r.contrast / lk_o.contrast <= 1.15:
                 tl.post_contrast = round(min(max(tl.post_contrast * min(max(lk_r.contrast / lk_o.contrast, 0.6), 1.5), 0.75), 1.3), 3)
                 changes.append(f"post_contrast={tl.post_contrast}")
+        vf_ = compare_vibe(dna, out_dna)
+        if vf_.get("over_effected") and not a.no_fx and tl.fx_scale > 0.5:  # EXAGEROU em relação à referência -> reduz
+            tl.fx_scale = round(max(0.5, tl.fx_scale * 0.75), 3)
+            tl.effects = [e_ for e_ in tl.effects if e_.intensity >= 0.3 or e_.type in ("zoom_punch",)]
+            changes.append(f"vibe: exagerou (efeitos {vf_['effect_density_ratio']}x, agressividade {vf_['aggressiveness']['delta']:+.2f}) -> fx_scale={tl.fx_scale}, efeitos fracos removidos")
         if not changes:
             break
         log(f"protetor de fidelidade (iteração {it + 1}): {', '.join(changes)}; a re-renderizar")
@@ -98,12 +104,14 @@ def cmd_make(a):
         out_dna = analyze_reference(a.out, with_audio=bool(tl.music_path))
         fxrep = compare_effects(dna, out_dna)
     log(f"efeitos: {fxrep['types']} | inventados={fxrep['invented']} | look={fxrep['look']} | ok={fxrep['ok']} {fxrep['reasons']}")
+    vibe_rep = compare_vibe(dna, out_dna)
+    log(f"vibe: score={vibe_rep.get('score')} energia(corr)={vibe_rep.get('energy_corr')} impactos={vibe_rep.get('impacts')} agressividade={vibe_rep.get('aggressiveness')} exagerou={vibe_rep.get('over_effected')} aquém={vibe_rep.get('under_effected')}")
     rep = compare(dna, out_dna)
     rep["execution"] = compare_plan([sh.start_frame for sh in tl.shots[1:]], out_dna)
     log(f"execução (cortes planeados presentes no output): {rep['execution']}")
     log(f"fidelidade (ref vs output re-analisado): {rep['fidelity']}  componentes={rep['components']}")
     if a.report:
-        json.dump({"detector": det.__dict__, "match": [m.__dict__ | {"speed": None} for m in ms], "retime": info, "eval": rep, "effects_eval": fxrep, "fx_scale": tl.fx_scale, "post": [tl.post_gamma, tl.post_sat, tl.post_contrast, tl.post_sharp]},
+        json.dump({"detector": det.__dict__, "match": [m.__dict__ | {"speed": None} for m in ms], "retime": info, "eval": rep, "effects_eval": fxrep, "vibe_eval": vibe_rep, "decisions": info.get("decisions", []), "fx_scale": tl.fx_scale, "post": [tl.post_gamma, tl.post_sat, tl.post_contrast, tl.post_sharp]},
                   open(a.report, "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
     return 0
 

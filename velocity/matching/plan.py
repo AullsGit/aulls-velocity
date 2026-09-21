@@ -46,6 +46,25 @@ def tone_for(sh, c: ClipProfile, m: Match, strength: float, ref_sharp: float = 5
     return out
 
 
+def _contextual_direction(t: Transition, clips: list[ClipProfile], matches: list[Match], k: int):
+    """Transição direcional CONTEXTUAL: se o movimento do sujeito na saída/entrada contraria o deslizamento medido na
+    referência, espelha-se a direção (continuidade de movimento). Só atua com movimento claro; senão mantém o medido."""
+    if not t.direction.startswith("slide_left") and not t.direction.startswith("slide_right"):
+        return t, None
+    prev, cur = matches[k - 1], matches[k]
+    cp, cc = clips[prev.clip_index], clips[cur.clip_index]
+    e_end = prev.start_frame + prev.need_frames
+    vx_out = float(cp.subj[max(prev.start_frame, e_end - 8):e_end, 0].mean() - cp.subj[max(prev.start_frame, e_end - 16):max(prev.start_frame + 1, e_end - 8), 0].mean()) / 8
+    vx_in = float(cc.subj[cur.start_frame + 6:cur.start_frame + 14, 0].mean() - cc.subj[cur.start_frame:cur.start_frame + 8, 0].mean()) / 8
+    v = vx_out if abs(vx_out) >= abs(vx_in) else vx_in
+    want = "slide_right" if v > 0 else "slide_left"
+    if abs(v) >= 0.004 and want != t.direction:
+        dec = {"what": f"transicao_{k}", "decision": f"{t.direction} -> {want}",
+               "why": f"o sujeito move-se {'para a direita' if v > 0 else 'para a esquerda'} no corte (v={v:+.4f}/frame): o deslize acompanha o movimento"}
+        return t.model_copy(update={"direction": want, "motion": {**t.motion, "dx": -t.motion.get("dx", 0.0)}}), dec
+    return t, {"what": f"transicao_{k}", "decision": f"mantida {t.direction}", "why": "direção medida na referência; movimento do sujeito compatível ou pouco claro"}
+
+
 def _retime_to_music(dna: EditDNA, music_path: str) -> tuple[list[int], float, dict]:
     """Novos frames de corte para a música, se a referência estiver presa às batidas. Devolve
     (cortes, music_offset_s, info). Sem retime, devolve os cortes originais."""
@@ -87,6 +106,9 @@ def build_timeline(dna: EditDNA, clips: list[ClipProfile], matches: list[Match],
     cuts, offset, info = _retime_to_music(dna, music_path) if music_path else (dna.cut_frames(), 0.0, {"retimed": False})
     bounds = [0] + cuts + [dna.n_frames]
     shots: list[TimelineShot] = []
+    decisions: list[dict] = []
+    if info.get("retimed") is not None:
+        decisions.append({"what": "retime_musica", "decision": bool(info.get("retimed")), "why": info.get("reason") or "cortes da referência presos às batidas; retime à música"})
     for k, sh in enumerate(dna.shots):
         m = matches[k]
         c = clips[m.clip_index]
@@ -100,6 +122,9 @@ def build_timeline(dna: EditDNA, clips: list[ClipProfile], matches: list[Match],
             delta = bounds[k] - t0.cut_frame
             t_in = Transition(**{**t0.model_dump(), "start_frame": max(0, t0.start_frame + delta),
                                  "end_frame": min(dna.n_frames, t0.end_frame + delta), "cut_frame": bounds[k]})
+            t_in, dec = _contextual_direction(t_in, clips, matches, k)
+            if dec:
+                decisions.append(dec)
         tn = tone_for(sh, c, m, tone, ref_sharp=dna.look.sharpness if dna.look else 500.0, use_masks=subject_enhance)
         pan = (float(np.clip(-sh.motion.pan_x * 0.5, -0.12, 0.12)), float(np.clip(-sh.motion.pan_y * 0.5, -0.12, 0.12)))
         shots.append(TimelineShot(
@@ -109,6 +134,13 @@ def build_timeline(dna: EditDNA, clips: list[ClipProfile], matches: list[Match],
             transition_in=t_in))
     effects, fx_info = plan_effects(dna, cuts) if fx else ([], {"desligado": True})
     info["fx"] = fx_info
+    decisions.append({"what": "efeitos", "decision": fx_info, "why": "só se transfere o que foi MEDIDO na referência (regra da evidência)"})
+    vb = dna.vibe
+    if vb:
+        decisions.append({"what": "vibe_alvo", "decision": vb.descriptors, "why": f"arco={vb.arc}, agressividade={vb.aggressiveness}, densidade de efeitos={vb.effect_density}/s, impactos={len(vb.impacts)}"})
+    roles = [(m.shot_index, m.parts) for m in matches]
+    decisions.append({"what": "matching", "decision": "custo por (ação/papel, forma, brilho, sujeito, direção, continuidade)", "why": "impacto->energia alta, descanso->energia baixa, direção do sujeito, match cut em cortes secos"})
+    info["decisions"] = decisions
     tl = Timeline(fps=dna.fps, width=size[0], height=size[1], n_frames=dna.n_frames, shots=shots,
                   fx_events=dna.fx_events, effects=effects, fx_scale=fx_scale, music_path=music_path,
                   music_offset_s=offset, zoom_gain=zoom_gain, denoise=denoise, sr=sr)

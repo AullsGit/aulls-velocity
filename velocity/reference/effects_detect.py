@@ -17,6 +17,13 @@ def _ramp(x, lo, hi):
     return float(np.clip((x - lo) / (hi - lo), 0.0, 1.0))
 
 
+def _env(x) -> list[float]:
+    """Perfil normalizado (pico=1) da grandeza medida ao longo do efeito."""
+    x = np.asarray(x, np.float32)
+    m = float(x.max()) if len(x) else 0.0
+    return [round(float(v), 3) for v in (x / m)] if m > 1e-9 else []
+
+
 def _ma(x, w):
     return np.convolve(np.pad(x, (w // 2, w // 2), mode="edge"), np.ones(w) / w, mode="valid")[: len(x)]
 
@@ -95,7 +102,8 @@ def detect_effects(rgb: np.ndarray, sig: Signals, transitions: list[Transition],
             k, ref, off = _anchor(peak, cuts, beat_frames)
             tracks.append(EffectTrack(type="zoom_punch", start_frame=a, end_frame=b, peak_frame=peak,
                                       magnitude=round(mag, 4), intensity=round(_ramp(abs(mag), 0.045, 0.35), 3),
-                                      anchor=k, anchor_ref=ref, anchor_offset=off, confidence=0.7))
+                                      anchor=k, anchor_ref=ref, anchor_offset=off, confidence=0.7,
+                                      envelope=_env(np.abs(zs[a:b]))))
 
     # --- shake: alta frequência da translação ---
     tx = np.where(mask, 0.0, sig.tx)
@@ -107,7 +115,8 @@ def detect_effects(rgb: np.ndarray, sig: Signals, transitions: list[Transition],
         peak = a + int(np.argmax(hf[a:b]))
         k, ref, off = _anchor(peak, cuts, beat_frames)
         tracks.append(EffectTrack(type="shake", start_frame=a, end_frame=b, peak_frame=peak, magnitude=round(amp, 4),
-                                  intensity=round(_ramp(amp, 0.006, 0.04), 3), anchor=k, anchor_ref=ref, anchor_offset=off, confidence=0.6))
+                                  intensity=round(_ramp(amp, 0.006, 0.04), 3), anchor=k, anchor_ref=ref, anchor_offset=off, confidence=0.6,
+                                  envelope=_env(hf[a:b])))
 
     # --- rgb split: desalinhamento horizontal R/B (fora das transições) ---
     shifts = np.zeros(n)
@@ -121,7 +130,8 @@ def detect_effects(rgb: np.ndarray, sig: Signals, transitions: list[Transition],
         peak = a + int(np.argmax(shifts[a:b]))
         k, ref, off = _anchor(peak, cuts, beat_frames)
         tracks.append(EffectTrack(type="rgb_split", start_frame=a, end_frame=b, peak_frame=peak, magnitude=round(amp, 4),
-                                  intensity=round(_ramp(amp, 0.005, 0.04), 3), anchor=k, anchor_ref=ref, anchor_offset=off, confidence=0.4))
+                                  intensity=round(_ramp(amp, 0.005, 0.04), 3), anchor=k, anchor_ref=ref, anchor_offset=off, confidence=0.4,
+                                  envelope=_env(shifts[a:b])))
 
     # --- pulsos de exposição / contraste / saturação (só se houver evidência) ---
     g = rgb.astype(np.float32).mean(axis=3)
@@ -142,7 +152,7 @@ def detect_effects(rgb: np.ndarray, sig: Signals, transitions: list[Transition],
                 k, ref, off = _anchor(a + pk, cuts, beat_frames)
                 tracks.append(EffectTrack(type=name, start_frame=a, end_frame=b, peak_frame=a + pk, magnitude=round(float(seg[pk]), 3),
                                           intensity=round(_ramp(float(np.abs(seg).max()), thr_rel, 0.5), 3), anchor=k, anchor_ref=ref,
-                                          anchor_offset=off, confidence=0.5))
+                                          anchor_offset=off, confidence=0.5, envelope=_env(np.abs(seg))))
     # pulso de saturação que coincide com rgb_split/shake é consequência desse efeito, não um efeito próprio
     cover = [(t.start_frame - 3, t.end_frame + 3) for t in tracks if t.type in ("rgb_split", "shake")]
     tracks = [t for t in tracks if not (t.type == "sat_pulse" and any(a <= t.peak_frame < b for a, b in cover))]

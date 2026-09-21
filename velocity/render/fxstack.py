@@ -21,6 +21,14 @@ def _smoothstep(x: np.ndarray) -> np.ndarray:
     return x * x * (3 - 2 * x)
 
 
+def _env_at(t: EffectTrack, f: int) -> float:
+    """Intensidade 0..1 no frame f: envelope MEDIDO se existir (curvas tipo 0→20→60→100→40→0), senão triangular."""
+    if t.envelope and t.end_frame > t.start_frame:
+        pos = (f - t.start_frame) / max(t.end_frame - t.start_frame - 1, 1) * (len(t.envelope) - 1)
+        return float(np.clip(np.interp(pos, np.arange(len(t.envelope)), t.envelope), 0, 1))
+    return _tri(f, t.start_frame, t.peak_frame, t.end_frame)
+
+
 def _tri(f: int, a: int, peak: int, b: int) -> float:
     if f < a or f >= b:
         return 0.0
@@ -40,7 +48,7 @@ def zoom_extra(start: int, length: int, tracks: list[EffectTrack], scale: float)
         out += t.magnitude * scale * _smoothstep((f - t.start_frame) / span)
     for t in tracks:  # margem para o shake não mostrar bordas
         if t.type == "shake" and t.start_frame < start + length and t.end_frame > start:
-            m = np.array([_tri(int(x), t.start_frame, t.peak_frame, t.end_frame) for x in f], np.float32)
+            m = np.array([_env_at(t, int(x)) for x in f], np.float32)
             out += np.log1p(3.0 * t.magnitude * scale) * (m > 0)
     return out
 
@@ -50,7 +58,7 @@ def shake_offsets(frame: int, tracks: list[EffectTrack], width: int, scale: floa
     dx = dy = 0.0
     for t in tracks:
         if t.type == "shake" and t.start_frame <= frame < t.end_frame:
-            env = min(1.0, (frame - t.start_frame + 1) / 2, (t.end_frame - frame) / 2)
+            env = min(1.0, (frame - t.start_frame + 1) / 2, (t.end_frame - frame) / 2) * (0.35 + 0.65 * _env_at(t, frame))
             rng = np.random.default_rng(frame * 7919 + t.start_frame)
             amp = t.magnitude * scale * width * 1.6
             dx += float(rng.uniform(-1, 1)) * amp * env
@@ -63,7 +71,7 @@ def post_fx(img: np.ndarray, frame: int, tracks: list[EffectTrack], scale: float
     for t in tracks:
         if not (t.start_frame <= frame < t.end_frame):
             continue
-        env = _tri(frame, t.start_frame, t.peak_frame, t.end_frame)
+        env = _env_at(t, frame)
         if t.type == "rgb_split":
             px = t.magnitude * scale * w * env
             if px >= 0.5:

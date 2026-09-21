@@ -87,6 +87,45 @@ def apply(img: np.ndarray, t_type: str, amt: float, intensity: float, blur_kind:
     return img
 
 
+def measured_env(env: list[float], f: int, start: int, end: int, cut: int) -> float:
+    """Valor do envelope MEDIDO no frame f (interpola se a duração diferir); sem envelope -> triangular."""
+    if env and end > start:
+        pos = (f - start) / max(end - start - 1, 1) * (len(env) - 1)
+        return float(np.clip(np.interp(pos, np.arange(len(env)), env), 0, 1))
+    return envelope(f, start, cut, end)
+
+
+def _shift(img: np.ndarray, dx: float, dy: float) -> np.ndarray:
+    h, w = img.shape[:2]
+    m = np.float32([[1, 0, dx], [0, 1, dy]])
+    return cv2.warpAffine(img, m, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+
+
 def apply_transition(img: np.ndarray, t: Transition, f: int) -> np.ndarray:
-    amt = envelope(f, t.start_frame, t.cut_frame, t.end_frame)
-    return apply(img, t.type, amt, t.intensity, t.blur_kind, f)
+    """Transição com direção: o CONTEÚDO desliza (whip) ou o zoom atravessa o corte, com blur alinhado ao movimento.
+    Saída (f<cut) e entrada (f>=cut) movem-se no mesmo sentido, dando continuidade ao gesto de câmara."""
+    if f < t.start_frame or f >= t.end_frame:
+        return img
+    amt = measured_env(t.envelope, f, t.start_frame, t.end_frame, t.cut_frame)
+    h, w = img.shape[:2]
+    out = img
+    d = t.direction
+    outgoing = f < t.cut_frame
+    if t.type in ("blur", "glitch") and d.startswith("slide"):
+        mag = float(np.clip(max(abs(t.motion.get("dx", 0.0)), abs(t.motion.get("dy", 0.0))) * 0.7, 0.12, 0.5))
+        sign = 1.0 if outgoing else -1.0
+        dx = dy = 0.0
+        if d in ("slide_right", "slide_left"):
+            dx = sign * mag * w * amt * (1.0 if d == "slide_right" else -1.0)
+        else:
+            dy = sign * mag * h * amt * (1.0 if d == "slide_down" else -1.0)
+        out = _shift(out, dx, dy)
+        kind = "horizontal" if d in ("slide_right", "slide_left") else "vertical"
+        return apply(out, t.type, amt, t.intensity, kind, f)
+    if t.type in ("blur", "glitch") and d.startswith("zoom"):
+        mag = float(np.clip(abs(t.motion.get("zoom", 0.0)) * 0.7, 0.1, 0.45))
+        s_ = np.exp(mag * amt * (1.0 if d == "zoom_in" else -1.0))
+        cx = cv2.getRotationMatrix2D((w / 2, h / 2), 0, float(s_))
+        out = cv2.warpAffine(out, cx, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+        return apply(out, t.type, amt, t.intensity, "radial", f)
+    return apply(out, t.type, amt, t.intensity, t.blur_kind, f)

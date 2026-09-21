@@ -189,7 +189,33 @@ def _classify_span(rgb, sig: Signals, a: int, b: int, p: SegmenterParams):
         intensity = float(np.clip(d_peak / 60.0, 0.2, 1.0))
     kind = _blur_kind(rgb[a + int(np.argmin(sig.sharp[idx]))]) if t == "blur" else "none"
     peak = peak_lum if t == "flash" else (min_lum if t == "dip_black" else None)
-    return t, int(cut), intensity, kind, peak
+    # envelope MEDIDO: perfil de intensidade ao longo do intervalo (0..1)
+    if t == "flash":
+        env = np.clip((span_lum - base_hi) / max(peak_lum - base_hi, 1e-6), 0, 1)
+    elif t == "dip_black":
+        env = np.clip((base_lo - span_lum) / max(base_lo - min_lum, 1e-6), 0, 1)
+    elif t == "blur":
+        env = np.clip((ln_sharp_base - np.log(np.maximum(sig.sharp[idx], 1.0))) / max(ln_sharp_base - np.log(max(sharp_min, 1.0)), 1e-6), 0, 1)
+    elif t == "glitch":
+        env = np.clip(sig.d[idx] / max(d_peak, 1e-6), 0, 1)
+    else:
+        env = np.ones(len(idx))
+    # direção do movimento durante a transição (com 2 frames de margem): translação/zoom globais acumulados
+    lo2, hi2 = max(1, a - 2), min(n, b + 3)
+    ok = sig.flow_ok[lo2:hi2]
+    dxs, dys, zz = float(np.where(ok, sig.tx[lo2:hi2], 0).sum()), float(np.where(ok, sig.ty[lo2:hi2], 0).sum()), float(np.where(ok, sig.zoom[lo2:hi2], 0).sum())
+    ah, aw = rgb.shape[1], rgb.shape[2]
+    dys_n = dys * (aw / ah)  # ty foi normalizado pela largura; converte para fração da altura
+    z_pre = float(np.where(sig.flow_ok[lo2:max(lo2, cut)], sig.zoom[lo2:max(lo2, cut)], 0).sum())  # zoom ANTES do corte (transição de zoom é simétrica)
+    trans_mag = max(abs(dxs), abs(dys_n))
+    direction = "none"
+    if trans_mag >= 0.06 and trans_mag >= 1.5 * abs(z_pre):
+        direction = ("slide_right" if dxs > 0 else "slide_left") if abs(dxs) >= abs(dys_n) else ("slide_down" if dys_n > 0 else "slide_up")
+    elif abs(z_pre) >= 0.04 and abs(z_pre) >= 1.5 * trans_mag:
+        direction = "zoom_in" if z_pre > 0 else "zoom_out"
+    zz = z_pre if direction.startswith("zoom") else zz
+    motion = {"dx": round(dxs, 4), "dy": round(dys, 4), "zoom": round(zz, 4)}
+    return t, int(cut), intensity, kind, peak, [round(float(v), 3) for v in env], direction, motion
 
 
 def segment(rgb: np.ndarray, sig: Signals, params: SegmenterParams | None = None) -> Segmentation:
@@ -202,7 +228,7 @@ def segment(rgb: np.ndarray, sig: Signals, params: SegmenterParams | None = None
 
     for a, b in spans:
         edge_start, edge_end = a <= p.edge_frames, b >= n - 1 - p.edge_frames
-        t, cut, intensity, kind, peak = _classify_span(rgb, sig, a, b, p)
+        t, cut, intensity, kind, peak, env, direction, motion = _classify_span(rgb, sig, a, b, p)
         if edge_start or edge_end:
             # fade de entrada/saída (ou início/fim com efeito): evento, não corte
             seg.fx_events.append(FxEvent(type=t if t != "cut" else "glitch", start_frame=a, end_frame=b + 1, intensity=intensity))
@@ -214,8 +240,8 @@ def segment(rgb: np.ndarray, sig: Signals, params: SegmenterParams | None = None
         if changed:
             seg.transitions.append(
                 Transition(type=t, start_frame=int(a), end_frame=int(b + 1), cut_frame=cut,
-                           intensity=round(intensity, 3), blur_kind=kind,
-                           peak_luma=round(peak, 1) if peak is not None else None)
+                           intensity=round(intensity, 3), blur_kind=kind, peak_luma=round(peak, 1) if peak is not None else None,
+                           direction=direction, motion=motion, envelope=env)
             )
         else:
             seg.fx_events.append(FxEvent(type=t, start_frame=int(a), end_frame=int(b + 1), intensity=round(intensity, 3)))

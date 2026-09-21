@@ -1,0 +1,430 @@
+{
+ "detector": {
+  "is_velocity": true,
+  "score": 0.668,
+  "subscores": {
+   "effects": 1.0,
+   "cadence": 1.0,
+   "dynamics": 0.342,
+   "beat_lock": 0.0
+  },
+  "reasons": [
+   "transições com efeito + cadência + dinâmica compatíveis com Velocity",
+   "cortes não presos às batidas (pode ser normal se a música não for detetável)"
+  ]
+ },
+ "match": [
+  {
+   "shot_index": 0,
+   "clip_index": 0,
+   "start_frame": 60,
+   "need_frames": 57,
+   "cost": 0.1615724662705648,
+   "parts": {
+    "action": 0.29745206537125213,
+    "shape": 0.2312083397315407,
+    "brightness": 0.02974344739726946,
+    "subject": 0.0,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 1,
+   "clip_index": 0,
+   "start_frame": 135,
+   "need_frames": 57,
+   "cost": 0.13502823016251234,
+   "parts": {
+    "action": 0.32203062668897176,
+    "shape": 0.12500175544182024,
+    "brightness": 0.009185155232747396,
+    "subject": 0.0,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 2,
+   "clip_index": 0,
+   "start_frame": 243,
+   "need_frames": 34,
+   "cost": 0.17687387392495582,
+   "parts": {
+    "action": 0.27428902329172566,
+    "shape": 0.2994342327172864,
+    "brightness": 0.04756897122252222,
+    "subject": 0.0,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 3,
+   "clip_index": 0,
+   "start_frame": 204,
+   "need_frames": 30,
+   "cost": 0.2515311125847902,
+   "parts": {
+    "action": 0.07354265860249654,
+    "shape": 0.6966965610253301,
+    "brightness": 0.2045934669644225,
+    "subject": 0.0,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 4,
+   "clip_index": 0,
+   "start_frame": 270,
+   "need_frames": 31,
+   "cost": 0.1755985749726204,
+   "parts": {
+    "action": 0.05629906060996015,
+    "shape": 0.12331517544100162,
+    "brightness": 0.2171430415733188,
+    "subject": 0.0,
+    "reuse": 1.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 5,
+   "clip_index": 1,
+   "start_frame": 15,
+   "need_frames": 29,
+   "cost": 0.2019577876010129,
+   "parts": {
+    "action": 0.03326470209754212,
+    "shape": 0.4630252294408281,
+    "brightness": 0.047949440152037386,
+    "subject": 0.24137932062149048,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 6,
+   "clip_index": 1,
+   "start_frame": 390,
+   "need_frames": 30,
+   "cost": 0.21454794199536323,
+   "parts": {
+    "action": 0.026187105906575733,
+    "shape": 0.4357828833347457,
+    "brightness": 0.15956942838781019,
+    "subject": 0.30000001192092896,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 7,
+   "clip_index": 0,
+   "start_frame": 3,
+   "need_frames": 33,
+   "cost": 0.20161064056011951,
+   "parts": {
+    "action": 0.02155449749067044,
+    "shape": 0.6400200159904673,
+    "brightness": 0.03138286515778186,
+    "subject": 0.0,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 8,
+   "clip_index": 1,
+   "start_frame": 258,
+   "need_frames": 29,
+   "cost": 0.09845093473221668,
+   "parts": {
+    "action": 0.001608544588856009,
+    "shape": 0.09522950690331211,
+    "brightness": 0.07330556233723959,
+    "subject": 0.3103448152542114,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 9,
+   "clip_index": 0,
+   "start_frame": 297,
+   "need_frames": 33,
+   "cost": 0.029900275162483666,
+   "parts": {
+    "action": 0.020911079655128062,
+    "shape": 0.021140451155932438,
+    "brightness": 0.17284815919165517,
+    "subject": 0.0,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 10,
+   "clip_index": 0,
+   "start_frame": 195,
+   "need_frames": 30,
+   "cost": 0.18107920102474528,
+   "parts": {
+    "action": 0.006241153004761246,
+    "shape": 0.1962811018256359,
+    "brightness": 0.20322524575626152,
+    "subject": 0.0,
+    "reuse": 1.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 11,
+   "clip_index": 2,
+   "start_frame": 156,
+   "need_frames": 31,
+   "cost": 0.16328318098274405,
+   "parts": {
+    "action": 0.010359027152232692,
+    "shape": 0.16288901452993293,
+    "brightness": 0.11308768478094364,
+    "subject": 0.5,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 12,
+   "clip_index": 0,
+   "start_frame": 273,
+   "need_frames": 29,
+   "cost": 0.3011746061303874,
+   "parts": {
+    "action": 0.056299060609960094,
+    "shape": 0.5915515193989662,
+    "brightness": 0.06819432127709482,
+    "subject": 0.0,
+    "reuse": 1.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 13,
+   "clip_index": 2,
+   "start_frame": 258,
+   "need_frames": 31,
+   "cost": 0.2494972461805061,
+   "parts": {
+    "action": 0.02721657444344361,
+    "shape": 0.4184270769927256,
+    "brightness": 0.15804150749655332,
+    "subject": 0.5,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 14,
+   "clip_index": 0,
+   "start_frame": 255,
+   "need_frames": 28,
+   "cost": 0.14341207190667438,
+   "parts": {
+    "action": 0.011002444987775029,
+    "shape": 0.10842952641213449,
+    "brightness": 0.07582480486701516,
+    "subject": 0.0,
+    "reuse": 1.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 15,
+   "clip_index": 2,
+   "start_frame": 381,
+   "need_frames": 31,
+   "cost": 0.18856928962889621,
+   "parts": {
+    "action": 0.025929738772358712,
+    "shape": 0.18126661054848198,
+    "brightness": 0.26410384832643996,
+    "subject": 0.5,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 16,
+   "clip_index": 1,
+   "start_frame": 57,
+   "need_frames": 32,
+   "cost": 0.13622764028154313,
+   "parts": {
+    "action": 0.0022519624243984016,
+    "shape": 0.22420069105713042,
+    "brightness": 0.12041844237084483,
+    "subject": 0.28125,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 17,
+   "clip_index": 1,
+   "start_frame": 144,
+   "need_frames": 30,
+   "cost": 0.2227104493968856,
+   "parts": {
+    "action": 0.031463132158023405,
+    "shape": 0.5105051915137929,
+    "brightness": 0.067866221409218,
+    "subject": 0.2666666507720947,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  },
+  {
+   "shot_index": 18,
+   "clip_index": 1,
+   "start_frame": 348,
+   "need_frames": 30,
+   "cost": 0.24344712477914665,
+   "parts": {
+    "action": 0.12527345258010553,
+    "shape": 0.5,
+    "brightness": 0.09198419159533931,
+    "subject": 0.23333334922790527,
+    "reuse": 0.0
+   },
+   "speed": null,
+   "freeze_tail": false
+  }
+ ],
+ "retime": {
+  "retimed": false,
+  "fx": {
+   "transferidos": {
+    "shake": 7,
+    "zoom_punch": 4
+   },
+   "rejeitado_por_evidencia": 3
+  },
+  "audio": "da referência"
+ },
+ "eval": {
+  "fidelity": 0.9127,
+  "components": {
+   "cut_f1": 0.9474,
+   "type_acc": 0.8333,
+   "duration": 1.0,
+   "transition_mix": 0.8542,
+   "beat": 0.951
+  },
+  "cuts": {
+   "ref": 20,
+   "out": 18,
+   "matched": 18,
+   "precision": 1.0,
+   "recall": 0.9,
+   "tol_frames": 3
+  },
+  "frame_delta": {
+   "ref": 580,
+   "out": 580
+  },
+  "type_family_acc": 0.944,
+  "transition_counts": {
+   "ref": {
+    "glitch": 1,
+    "blur": 13,
+    "flash": 1,
+    "cut": 2,
+    "dip_black": 1
+   },
+   "out": {
+    "cut": 3,
+    "blur": 11,
+    "flash": 2
+   }
+  },
+  "execution": {
+   "planned": 18,
+   "found": 18,
+   "recall": 1.0,
+   "tol_frames": 3
+  }
+ },
+ "effects_eval": {
+  "types": {
+   "zoom_punch": {
+    "ref": 4,
+    "out": 3,
+    "matched": 3,
+    "precision": 1.0,
+    "recall": 0.75,
+    "magnitude_ratio": 0.596
+   },
+   "shake": {
+    "ref": 7,
+    "out": 8,
+    "matched": 6,
+    "precision": 0.75,
+    "recall": 0.857,
+    "magnitude_ratio": 1.64
+   },
+   "rgb_split": {
+    "ref": 0,
+    "out": 2,
+    "matched": 0,
+    "precision": 0.0,
+    "recall": 1.0,
+    "magnitude_ratio": null
+   }
+  },
+  "invented": 4,
+  "invented_ratio": 0.308,
+  "look": {
+   "aggressiveness": {
+    "ref": 0.336,
+    "out": 0.259,
+    "delta": -0.077
+   },
+   "motion_energy_ratio": 0.878,
+   "sharpness_ratio": 0.287,
+   "contrast_ratio": 1.102,
+   "saturation_ratio": 1.02,
+   "luma_delta": 2.7
+  },
+  "ok": false,
+  "reasons": [
+   "sharpness_ratio fora da tolerância (0.287)"
+  ],
+  "suggested_fx_scale": null
+ },
+ "fx_scale": 1.0,
+ "post": [
+  1.164,
+  1.0,
+  1.0,
+  0.759
+ ]
+}

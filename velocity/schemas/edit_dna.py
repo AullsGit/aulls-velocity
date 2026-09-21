@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-SCHEMA_VERSION = "1.1"
+SCHEMA_VERSION = "1.2"
 
 TransitionType = Literal["cut", "flash", "dip_black", "blur", "glitch"]
 BlurKind = Literal["none", "horizontal", "vertical", "radial"]
@@ -35,6 +35,9 @@ class Transition(BaseModel):
     peak_luma: float | None = None  # luma máx. na transição (flash) / mín. (dip_black)
     beat_offset_ms: float | None = None  # (cut_time - beat mais próximo) em ms; None sem áudio
     beat_index: float | None = None  # posição do corte em batidas (fracionária), p/ retime a outra música
+    direction: str = "none"  # slide_left|slide_right|slide_up|slide_down (movimento do CONTEÚDO) | zoom_in|zoom_out | none
+    motion: dict[str, float] = {}  # dx, dy (fração da largura), zoom (ln escala) acumulados na transição
+    envelope: list[float] = []  # perfil MEDIDO da intensidade ao longo de [start,end), normalizado (pico=1)
 
     @property
     def span(self) -> int:
@@ -121,6 +124,7 @@ class EffectTrack(BaseModel):
     anchor_ref: int | None = None  # índice da transição (cut) ou da batida (beat)
     anchor_offset: int = 0  # peak_frame - frame da âncora
     confidence: float = Field(0.5, ge=0.0, le=1.0)
+    envelope: list[float] = []  # perfil MEDIDO da intensidade ao longo de [start,end), normalizado (pico=1)
 
 
 class LookProfile(BaseModel):
@@ -139,6 +143,41 @@ class LookProfile(BaseModel):
     rgb_split_fraction: float
     aggressiveness: float = Field(0.0, ge=0.0, le=1.0)
     descriptors: list[str] = []  # ex.: ["aggressive", "fast"]
+
+
+class Impact(BaseModel):
+    """Momento de impacto da edição (pico da curva de energia)."""
+
+    t: float  # segundos
+    strength: float  # 0..1
+    on_beat: bool | None = None
+
+
+class VibeProfile(BaseModel):
+    """A 'vibe' da referência: como a edição SE SENTE ao longo do tempo. Todos os valores 0..1, exceto onde indicado.
+    É o alvo que o motor de decisão tenta preservar (e que o avaliador mede no output)."""
+
+    aggressiveness: float
+    smoothness: float  # 1 = movimentos e cortes fluidos; 0 = abrupto/tremido
+    calm: float  # 1 = calmo/contemplativo
+    intensity: float  # média da curva de energia
+    speed: float  # ritmo percebido (cortes + movimento)
+    energy_scale: float  # movimento médio ABSOLUTO (fração da diagonal por frame), para comparar entre vídeos
+    energy_hz: float = 4.0
+    energy_curve: list[float] = []  # energia 0..1 amostrada a energy_hz
+    arc: str = "plateau"  # build | decay | peak_early | peak_middle | peak_late | plateau | wave
+    arc_levels: list[float] = []  # energia média do início / meio / fim
+    impacts: list[Impact] = []
+    rests: list[tuple[float, float]] = []  # janelas de descanso (s)
+    transition_density: float = 0.0  # transições/s
+    transition_style: dict[str, float] = {}  # distribuição por tipo (soma 1)
+    effect_density: float = 0.0  # efeitos (não-cut) por segundo
+    effect_intensity_mean: float = 0.0
+    effect_intensity_p90: float = 0.0
+    vocabulary: dict[str, float] = {}  # tipo de efeito/transição -> ocorrências por segundo
+    zoom: dict[str, float] = {}  # punch_rate, punch_mean, punch_in_ratio, slow_zoom_ratio
+    beat: dict[str, float] = {}  # lock (alinhamento-acaso), energy_on_beat, impacts_on_beat
+    descriptors: list[str] = []
 
 
 class AudioDNA(BaseModel):
@@ -192,6 +231,7 @@ class EditDNA(BaseModel):
     fx_events: list[FxEvent] = []
     effects: list[EffectTrack] = []
     look: LookProfile | None = None
+    vibe: VibeProfile | None = None
     audio: AudioDNA
     signature: Signature
     warnings: list[str] = []

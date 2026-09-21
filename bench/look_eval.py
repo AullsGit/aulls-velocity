@@ -28,9 +28,10 @@ ok = 0
 print(f"{'id':8s} {'etiqueta':8s} {'aggr':>5s} {'motion':>7s} {'trans/s':>7s} {'punch/s':>7s} {'shake':>6s} {'sharp':>6s}  efeitos medidos")
 for label, name, d in rows:
     lk = d.look
-    pred = "aggr" if lk.aggressiveness >= 0.5 else "soft"
+    vb = d.vibe
+    pred = "aggr" if vb.aggressiveness >= 0.5 else "soft"
     ok += pred == label
     cnt = Counter(t.type for t in d.effects)
-    print(f"{name:8s} {label:8s} {lk.aggressiveness:5.2f} {lk.motion_energy_mean:7.4f} {lk.effect_transition_rate:7.2f} "
+    print(f"{name:8s} {label:8s} {vb.aggressiveness:5.2f} {lk.motion_energy_mean:7.4f} {lk.effect_transition_rate:7.2f} "
           f"{lk.punch_rate:7.2f} {lk.shake_fraction:6.2f} {lk.sharpness:6.0f}  {dict(cnt)}  {'OK' if pred == label else 'X  <-- errado'}")
 print(f"\nclassificação suave/agressivo correta: {ok}/{len(rows)} (vídeos únicos)")
