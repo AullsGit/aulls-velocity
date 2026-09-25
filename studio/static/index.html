@@ -3,69 +3,48 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Velocity Studio</title>
+<title>Velocity Studio — Aulls Velocity</title>
+<link rel="stylesheet" href="/static/brand.css">
 <style>
-  :root {
-    --bg: #0b0d12; --panel: #12151d; --panel2: #1a1f2b; --border: #262c3a;
-    --text: #e8ebf3; --muted: #8890a4; --accent: #6f5cff; --accent2: #ff5c8a;
-    --ok: #35d08a; --warn: #ffb84d; --err: #ff5c6c;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: linear-gradient(160deg, #0b0d12, #0f1220 60%, #14101f); color: var(--text);
-         font-family: -apple-system, "Segoe UI", Inter, Roboto, sans-serif; min-height: 100vh; }
-  .wrap { max-width: 920px; margin: 0 auto; padding: 24px 16px 80px; }
-  header { text-align: center; margin-bottom: 28px; }
-  header h1 { font-size: 1.9rem; margin: 0 0 6px; background: linear-gradient(90deg, var(--accent), var(--accent2));
-              -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
-  header p { color: var(--muted); margin: 0; font-size: .95rem; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
-  .card h2 { font-size: 1.05rem; margin: 0 0 4px; display: flex; align-items: center; gap: 8px; }
-  .card .hint { color: var(--muted); font-size: .85rem; margin: 0 0 14px; }
   .drop { border: 2px dashed var(--border); border-radius: 12px; padding: 22px 14px; text-align: center;
           cursor: pointer; transition: .15s; background: var(--panel2); }
-  .drop:hover, .drop.drag { border-color: var(--accent); background: #191627; }
+  .drop:hover, .drop.drag { border-color: var(--cyan); background: #211a38; }
   .drop input { display: none; }
   .drop .big { font-size: 1.6rem; }
   .filelist { margin-top: 10px; font-size: .85rem; color: var(--muted); text-align: left; }
-  .filelist span { display: inline-block; background: #232a3b; color: var(--text); border-radius: 8px;
-                    padding: 3px 9px; margin: 3px 4px 0 0; }
+  .filelist span { display: inline-block; background: var(--panel2); color: var(--paper); border-radius: 8px;
+                    padding: 3px 9px; margin: 3px 4px 0 0; border: 1px solid var(--border); }
   .row { display: flex; gap: 10px; flex-wrap: wrap; }
   .profiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 10px; }
   .profile { border: 1px solid var(--border); border-radius: 12px; padding: 12px; cursor: pointer; background: var(--panel2); }
-  .profile.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(111,92,255,.35) inset; }
+  .profile.sel { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(51,230,201,.3) inset; }
   .profile b { display: block; }
   .profile small { color: var(--muted); }
   .adv { margin-top: 10px; }
   .adv summary { cursor: pointer; color: var(--muted); font-size: .88rem; }
   .adv label { display: block; margin: 10px 0 4px; font-size: .85rem; color: var(--muted); }
-  textarea, select { width: 100%; background: var(--panel2); border: 1px solid var(--border); color: var(--text);
-                     border-radius: 8px; padding: 8px; font-family: inherit; }
   .chk { display: flex; align-items: center; gap: 8px; font-size: .88rem; color: var(--muted); margin-top: 8px; }
-  button.primary { width: 100%; padding: 15px; font-size: 1.05rem; font-weight: 700; border: none; border-radius: 12px;
-                   background: linear-gradient(90deg, var(--accent), var(--accent2)); color: white; cursor: pointer; }
-  button.primary:disabled { opacity: .5; cursor: not-allowed; }
-  button.secondary { padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel2);
-                      color: var(--text); cursor: pointer; }
   #console { background: #05060a; border: 1px solid var(--border); border-radius: 12px; padding: 12px; height: 220px;
              overflow-y: auto; font: 12px/1.5 "Consolas", monospace; color: #9fe3b0; white-space: pre-wrap; }
-  .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: .8rem; font-weight: 700; }
-  .badge.ok { background: rgba(53,208,138,.15); color: var(--ok); }
-  .badge.warn { background: rgba(255,184,77,.15); color: var(--warn); }
-  .badge.err { background: rgba(255,92,108,.15); color: var(--err); }
   video { width: 100%; max-width: 340px; display: block; margin: 0 auto; border-radius: 14px; background: black; }
   .result { text-align: center; }
   .scorebar { display: flex; justify-content: center; gap: 10px; margin: 14px 0; flex-wrap: wrap; }
   .hidden { display: none !important; }
-  footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 30px; }
-  a { color: var(--accent); }
 </style>
 </head>
 <body>
+<nav class="topbar">
+  <div class="brand"><span class="bolt">⚡</span> Aulls Velocity</div>
+  <div class="links">
+    <a href="/explorar">Explorar</a>
+    <a href="/conta" id="nav-conta" class="hidden">A minha conta</a>
+    <a href="#" id="nav-logout" class="hidden">Sair</a>
+  </div>
+</nav>
 <div class="wrap">
-  <header>
-    <h1>⚡ Velocity Studio</h1>
-    <p>Dá-nos uma referência Velocity + os teus vídeos. Devolvemos a tua edição, no mesmo estilo.</p>
-  </header>
+  <div class="card" style="text-align:center" id="status-card">
+    <p class="hint" style="margin:0" id="status-line">&nbsp;</p>
+  </div>
 
   <form id="form">
     <div class="card">
@@ -147,16 +126,35 @@
     <div class="row" style="justify-content:center">
       <a id="btn-download" class="secondary" style="text-decoration:none" download>⬇️ Descarregar</a>
       <button type="button" class="secondary" id="btn-restart-3">Gerar outro</button>
+      <label class="chk" id="publish-row" style="display:none"><input type="checkbox" id="publish-chk"> Publicar em /explorar</label>
     </div>
   </div>
 
-  <footer>Velocity Studio — processamento local. Os teus vídeos não saem deste computador.</footer>
+  <footer class="site">Aulls Velocity — Velocity Studio</footer>
 </div>
 
 <script>
 const $ = (s) => document.querySelector(s);
 let selectedProfile = "standard";
 let pendingFiles = {ref: null, clips: [], music: null};
+let me = {logged_in: false, local_mode: false, can_edit: true};
+let lastJobId = null;
+
+async function loadMe() {
+  me = await (await fetch("/api/me")).json();
+  if (me.local_mode) { $("#status-card").classList.add("hidden"); return; }
+  $("#nav-conta").classList.remove("hidden");
+  $("#nav-logout").classList.remove("hidden");
+  if (me.can_edit) {
+    $("#status-line").innerHTML = me.free_edits_used < 1
+      ? `<span class="badge ok">a tua edição grátis está disponível</span>`
+      : `<span class="badge ok">créditos pagos: ${me.paid_credits}</span>`;
+  } else {
+    $("#status-line").innerHTML = `<span class="badge err">já usaste a edição grátis</span> — ` +
+      `<a href="/conta">paga a próxima edição (desde ${me.prices_mt.fast} MT)</a>`;
+    $("#btn-generate").disabled = true;
+  }
+}
 
 function bindDrop(dropId, inputId, listId, multiple) {
   const drop = $(dropId), input = $(inputId), list = $(listId);
@@ -203,7 +201,7 @@ function showOnly(id) {
 }
 function resetAll() {
   ["progress-card", "rejected-card", "error-card", "result-card"].forEach(x => $("#" + x).classList.add("hidden"));
-  $("#btn-generate").disabled = false;
+  $("#btn-generate").disabled = !me.can_edit;
 }
 
 async function submitJob(force) {
@@ -220,7 +218,12 @@ async function submitJob(force) {
   fd.append("text", $("#text").value);
   const r = await fetch("/api/jobs", {method: "POST", body: fd});
   const j = await r.json();
-  if (j.error) { $("#error-msg").textContent = j.error; showOnly("error-card"); return; }
+  if (j.error) {
+    $("#error-msg").innerHTML = j.payment_required
+      ? `${j.error} — <a href="/conta">ir para a página de pagamento</a>` : j.error;
+    showOnly("error-card");
+    return;
+  }
   poll(j.job_id);
 }
 
@@ -238,6 +241,7 @@ async function poll(jobId) {
   }
   if (j.status === "error") { $("#error-msg").textContent = j.error || "erro desconhecido"; showOnly("error-card"); return; }
   // done
+  lastJobId = jobId;
   const vid = $("#result-video");
   vid.src = `/api/jobs/${jobId}/video`;
   $("#btn-download").href = `/api/jobs/${jobId}/video`;
@@ -249,10 +253,22 @@ async function poll(jobId) {
   if (dur != null) html += `<span class="badge ok">${dur.toFixed(0)}s</span>`;
   $("#scorebar").innerHTML = html;
   showOnly("result-card");
+  if (!me.local_mode) {
+    $("#publish-row").style.display = "inline-flex";
+    $("#publish-chk").checked = false;
+    $("#publish-chk").onchange = async () => {
+      await fetch(`/api/jobs/${lastJobId}/public`, {
+        method: "POST", headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({is_public: $("#publish-chk").checked}),
+      });
+    };
+  }
+  loadMe();
 }
 
 $("#form").addEventListener("submit", (e) => {
   e.preventDefault();
+  if (!me.can_edit) { window.location.href = "/conta"; return; }
   if (!pendingFiles.ref) return alert("Escolhe um vídeo de referência.");
   if (!pendingFiles.clips.length) return alert("Escolhe pelo menos um vídeo teu.");
   submitJob(false);
@@ -260,6 +276,13 @@ $("#form").addEventListener("submit", (e) => {
 $("#btn-restart-1").onclick = resetAll;
 $("#btn-restart-2").onclick = resetAll;
 $("#btn-restart-3").onclick = resetAll;
+$("#nav-logout").addEventListener("click", async (e) => {
+  e.preventDefault();
+  await fetch("/api/auth/logout", {method: "POST"});
+  window.location.href = "/login";
+});
+
+loadMe();
 </script>
 </body>
 </html>

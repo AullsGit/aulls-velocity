@@ -10,6 +10,14 @@ services:
     envVars:
       - key: VELOCITY_NO_TEXT
         value: "1"
+      # Contas/pagamentos (Supabase) — preencher no dashboard do Render depois do deploy
+      # (Settings → Environment), nunca aqui no ficheiro. Ver docs/DEPLOY.md.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: VELOCITY_OWNER_EMAIL
+        sync: false
       # Free tier = 512MB RAM / 0.1 CPU: limites mais apertados que os defaults do código,
       # para reduzir o risco de um pedido grande ou vários em fila esgotarem a memória.
       - key: VELOCITY_MAX_UPLOAD_MB

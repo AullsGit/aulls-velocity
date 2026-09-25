@@ -50,6 +50,42 @@ git push -u origin main
    o link no navegador (é isso que faz de ser "web" em vez de "app de loja" — não precisa de
    instalar nada).
 
+## Passo 3 — Contas, pagamentos e galeria: ligar o Supabase (só tu podes fazer isto)
+
+Desde que o site passou a ter login, 1ª edição grátis + pagamento para as seguintes, e
+publicação opcional de vídeos, isto precisa de uma base de dados que sobreviva a reinícios
+(o Render grátis não tem disco persistente). Usamos o [Supabase](https://supabase.com)
+(Postgres + Auth + Storage, tudo grátis no plano Free).
+
+1. Cria conta grátis em https://supabase.com (login com GitHub, um clique, sem cartão).
+2. "New Project" → escolhe um nome e uma password para a base de dados (guarda-a nalgum
+   lado, não é preciso para o resto destes passos) → espera ~2 min a ficar pronto.
+3. Vai a "SQL Editor" → "New query" → cola todo o conteúdo do ficheiro `supabase-schema.sql`
+   (na raiz deste repositório) → "Run". Isto cria as tabelas de perfis, vídeos e pagamentos,
+   e o bucket de armazenamento dos vídeos.
+4. Vai a "Project Settings" → "API" — vais precisar de 2 valores:
+   - **Project URL** (ex.: `https://xxxxx.supabase.co`)
+   - **service_role secret** (na secção "Project API keys" — é secreta, nunca a partilhes
+     nem a metas no código; só vai para uma variável de ambiente no Render)
+5. No dashboard do Render, no serviço `aulls-velocity-studio` → "Environment" → adiciona:
+   - `SUPABASE_URL` = o Project URL
+   - `SUPABASE_SERVICE_KEY` = a service_role secret
+   - `VELOCITY_OWNER_EMAIL` = o email com que te vais registar na app (só esta conta consegue
+     abrir `/admin` para confirmar pagamentos)
+6. Guarda — o Render reinicia o serviço sozinho com as novas variáveis.
+
+**Sem isto configurado, o site continua a funcionar** exactamente como antes (sem login, sem
+limite de edições) — as contas/pagamentos só ficam ativos quando as duas variáveis
+`SUPABASE_URL`/`SUPABASE_SERVICE_KEY` existirem.
+
+### Como funciona o pagamento (importante)
+
+Não há nenhuma ligação automática ao e-Mola — não é possível para uma conta pessoal, e não
+seria seguro pedir o PIN de ninguém. O fluxo é: o cliente transfere pelo **seu próprio**
+telemóvel para 868116236, depois declara na app quanto pagou (fica "a aguardar confirmação"),
+e só desbloqueia a próxima edição quando TU confirmares manualmente em `/admin` — depois de
+veres o dinheiro a entrar na tua conta e-Mola. Nunca pedimos PIN nem qualquer dado da conta.
+
 ## Limitações honestas do plano gratuito (importante saberes)
 
 - **512MB RAM, CPU muito fraca** — uma geração que demora ~3m30s no teu PC pode demorar

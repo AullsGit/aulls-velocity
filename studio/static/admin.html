@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Aulls Velocity</title>
+<link rel="stylesheet" href="/static/brand.css">
+<style>
+  .payrow { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+  .payrow:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <div class="brand"><span class="bolt">⚡</span> Aulls Velocity</div>
+  <div class="links"><a href="/">Gerar vídeo</a></div>
+</nav>
+<div class="wrap" style="max-width:640px">
+  <div class="card">
+    <h1 style="font-size:1.4rem">Pagamentos por confirmar</h1>
+    <p class="hint">Confirma aqui só depois de veres a transferência a entrar na tua conta e‑Mola (868116236).</p>
+    <div id="list" class="muted">a carregar…</div>
+  </div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+async function load() {
+  const j = await (await fetch("/api/admin/payments")).json();
+  const list = j.payments || [];
+  $("#list").innerHTML = list.length ? list.map(p => `
+    <div class="payrow" data-id="${p.id}">
+      <span>${p.profiles?.email || p.user_id} — <b>${p.amount_mt} MT</b> ${p.reference ? "· " + p.reference : ""}
+        <br><span class="muted" style="font-size:.8rem">${new Date(p.created_at).toLocaleString()}</span></span>
+      <button class="secondary" type="button">Confirmar</button>
+    </div>`).join("") : `<p class="muted">Sem pagamentos pendentes.</p>`;
+  $("#list").querySelectorAll("button").forEach(btn => btn.addEventListener("click", async () => {
+    const id = btn.closest(".payrow").dataset.id;
+    btn.disabled = true; btn.textContent = "a confirmar…";
+    await fetch(`/api/admin/payments/${id}/confirm`, {method: "POST"});
+    load();
+  }));
+}
+load();
+</script>
+</body>
+</html>

@@ -24,13 +24,21 @@ from queue import Queue
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from fastapi import FastAPI, File, Form, Request, UploadFile  # noqa: E402
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse  # noqa: E402
+from fastapi import Depends, FastAPI, File, Form, Request, Response, UploadFile  # noqa: E402
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
+from studio import auth, db  # noqa: E402
 from velocity.detector.velocity_detector import detect  # noqa: E402
 from velocity.pipeline import PROFILES, MakeParams, run_make  # noqa: E402
 from velocity.reference.analyzer import analyze_reference  # noqa: E402
+
+FREE_EDITS = 1
+PRICES_MT = {"fast": 150, "standard": 200, "hd": 300}
+# Número para onde os clientes transferem (e-Mola). O site nunca pede PIN nem qualquer
+# dado da conta — só mostra este número e depois deixa o cliente DECLARAR quanto pagou;
+# um pagamento só conta depois de o operador confirmar manualmente em /admin.
+EMOLA_NUMBER = "868116236"
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
@@ -77,17 +85,19 @@ class UploadTooLarge(Exception):
 @dataclass
 class Job:
     id: str
+    user_id: str | None = None
     status: str = "queued"  # queued | running | done | rejected | error
     log: list[str] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
     dir: str = ""
     out_path: str | None = None
+    video_url: str | None = None
     report: dict | None = None
     error: str | None = None
 
     def to_json(self):
         return {"id": self.id, "status": self.status, "log": self.log, "report": self.report, "error": self.error,
-                "has_video": bool(self.out_path and os.path.exists(self.out_path))}
+                "has_video": bool(self.out_path and os.path.exists(self.out_path)), "video_url": self.video_url}
 
 
 JOBS: dict[str, Job] = {}
@@ -144,6 +154,15 @@ def _save_upload(f, dest_dir: str) -> str:
     return path
 
 
+def _persist(job: Job, **fields):
+    """Espelha o estado do job na base de dados, se estiver configurada (modo público/nuvem)."""
+    if db.enabled() and job.user_id:
+        try:
+            db.update_job(job.id, **fields)
+        except Exception as e:  # a BD nunca deve derrubar uma geração já concluída
+            job.log.append(f"[aviso] não foi possível gravar na base de dados: {e}")
+
+
 def _run_job(job: Job):
     def log(m: str):
         job.log.append(m)
@@ -167,14 +186,23 @@ def _run_job(job: Job):
         job.status = "rejected"
         job.error = res.error
         job.report = {"detector": res.detector.__dict__ if res.detector else None}
+        _persist(job, status="rejected", error=job.error, report=job.report)
         return
     if not res.ok:
         job.status = "error"
         job.error = res.error or "falha desconhecida"
+        _persist(job, status="error", error=job.error)
         return
     job.out_path = res.out_path
     job.report = res.report
     job.status = "done"
+    if db.enabled() and job.user_id:
+        try:
+            job.video_url = db.upload_video(job.id, job.out_path)
+            db.consume_edit(job.user_id)
+        except Exception as e:
+            job.log.append(f"[aviso] não foi possível arquivar o vídeo na nuvem: {e}")
+        _persist(job, status="done", report=job.report, video_url=job.video_url)
 
 
 threading.Thread(target=_worker, daemon=True).start()
@@ -190,7 +218,17 @@ async def create_job(
     subject_enhance: bool = Form(False),
     force: bool = Form(False),
     text: str = Form(""),
+    user=Depends(auth.get_current_user),
 ):
+    if db.enabled():
+        if user is None:
+            return JSONResponse({"error": "inicia sessão para gerar um vídeo"}, status_code=401)
+        if not db.can_edit(user.id):
+            return JSONResponse(
+                {"error": "já usaste a tua edição grátis — confirma um pagamento para continuar",
+                 "payment_required": True},
+                status_code=402,
+            )
     ip = _client_ip(request)
     if _rate_limited(ip):
         return JSONResponse(
@@ -231,9 +269,15 @@ async def create_job(
                "subject_enhance": subject_enhance, "force": force, "text": text},
               open(os.path.join(job_dir, "params.json"), "w", encoding="utf-8"))
 
-    job = Job(id=job_id, dir=job_dir)
+    user_id = user.id if user is not None else None
+    job = Job(id=job_id, dir=job_dir, user_id=user_id)
     with JOBS_LOCK:
         JOBS[job_id] = job
+    if db.enabled() and user_id:
+        try:
+            db.upsert_job(job_id, user_id, status="queued", profile=profile)
+        except Exception as e:
+            job.log.append(f"[aviso] não foi possível registar o job na base de dados: {e}")
     QUEUE.put(job_id)
     return {"job_id": job_id}
 
@@ -249,9 +293,11 @@ def get_job(job_id: str):
 @app.get("/api/jobs/{job_id}/video")
 def get_video(job_id: str):
     job = JOBS.get(job_id)
-    if job is None or not job.out_path or not os.path.exists(job.out_path):
-        return JSONResponse({"error": "vídeo indisponível"}, status_code=404)
-    return FileResponse(job.out_path, media_type="video/mp4", filename=f"velocity_{job_id}.mp4")
+    if job is not None and job.out_path and os.path.exists(job.out_path):
+        return FileResponse(job.out_path, media_type="video/mp4", filename=f"velocity_{job_id}.mp4")
+    if job is not None and job.video_url:
+        return RedirectResponse(job.video_url)
+    return JSONResponse({"error": "vídeo indisponível"}, status_code=404)
 
 
 @app.get("/api/jobs/{job_id}/report")
@@ -283,14 +329,180 @@ os.makedirs(DATA_DIR, exist_ok=True)
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
+def _page(name: str) -> HTMLResponse:
+    return HTMLResponse(open(os.path.join(STATIC_DIR, name), encoding="utf-8").read())
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "uptime_s": round(time.time() - START_TIME, 1), "queue": QUEUE.qsize()}
 
 
+# ---------------------------------------------------------------------------
+# Autenticação — o Supabase Auth trata do hash da password; nós só guardamos a
+# sessão (access/refresh token) num cookie httponly. Sem SUPABASE_URL/SERVICE_KEY
+# configurados (uso local, um único operador), estas rotas ficam desativadas e o
+# resto do site funciona sem login, como antes.
+# ---------------------------------------------------------------------------
+
+@app.post("/api/auth/signup")
+async def signup(request: Request, response: Response):
+    if not db.enabled():
+        return JSONResponse({"error": "registo indisponível neste modo"}, status_code=400)
+    body = await request.json()
+    email, password = (body.get("email") or "").strip(), body.get("password") or ""
+    if not email or len(password) < 6:
+        return JSONResponse({"error": "email inválido ou password com menos de 6 caracteres"}, status_code=400)
+    try:
+        res = db.get_client().auth.sign_up({"email": email, "password": password})
+    except Exception as e:
+        return JSONResponse({"error": f"não foi possível criar a conta: {e}"}, status_code=400)
+    if res.session is None:
+        # Projeto com confirmação de email ativada: sem sessão imediata.
+        return {"ok": True, "confirm_email": True}
+    auth.set_session_cookie(response, res.session.access_token, res.session.refresh_token)
+    return {"ok": True}
+
+
+@app.post("/api/auth/login")
+async def login(request: Request, response: Response):
+    if not db.enabled():
+        return JSONResponse({"error": "login indisponível neste modo"}, status_code=400)
+    body = await request.json()
+    email, password = (body.get("email") or "").strip(), body.get("password") or ""
+    try:
+        res = db.get_client().auth.sign_in_with_password({"email": email, "password": password})
+    except Exception:
+        return JSONResponse({"error": "email ou password incorretos"}, status_code=401)
+    auth.set_session_cookie(response, res.session.access_token, res.session.refresh_token)
+    return {"ok": True}
+
+
+@app.post("/api/auth/logout")
+def logout(response: Response):
+    auth.clear_session_cookie(response)
+    return {"ok": True}
+
+
+@app.get("/api/me")
+def me(user=Depends(auth.get_current_user)):
+    if not db.enabled():
+        return {"logged_in": True, "local_mode": True}
+    if user is None:
+        return {"logged_in": False}
+    profile = db.ensure_profile(user.id, user.email)
+    return {
+        "logged_in": True,
+        "email": user.email,
+        "is_owner": bool(auth.OWNER_EMAIL) and (user.email or "").lower() == auth.OWNER_EMAIL.lower(),
+        "free_edits_used": profile.get("free_edits_used", 0),
+        "paid_credits": profile.get("paid_credits", 0),
+        "can_edit": db.can_edit(user.id),
+        "emola_number": EMOLA_NUMBER,
+        "prices_mt": PRICES_MT,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Pagamentos — fluxo por declaração + confirmação manual. O cliente transfere
+# pelo seu próprio telemóvel para o EMOLA_NUMBER e só depois diz aqui quanto
+# pagou; nunca pedimos PIN nem qualquer dado da conta e-Mola. Um pagamento só
+# desbloqueia uma edição depois de o operador (o dono, `/admin`) confirmar.
+# ---------------------------------------------------------------------------
+
+@app.post("/api/payments/declare")
+async def declare_payment(request: Request, user=Depends(auth.require_user)):
+    body = await request.json()
+    try:
+        amount = float(body.get("amount_mt"))
+    except (TypeError, ValueError):
+        return JSONResponse({"error": "valor inválido"}, status_code=400)
+    if amount <= 0:
+        return JSONResponse({"error": "valor inválido"}, status_code=400)
+    reference = (body.get("reference") or "").strip()[:200] or None
+    row = db.declare_payment(user.id, amount, reference)
+    return {"ok": True, "payment": row}
+
+
+@app.get("/api/payments/mine")
+def my_payments(user=Depends(auth.require_user)):
+    return {"payments": db.list_my_payments(user.id)}
+
+
+@app.get("/api/admin/payments")
+def admin_payments(user=Depends(auth.require_owner)):
+    return {"payments": db.list_pending_payments()}
+
+
+@app.post("/api/admin/payments/{payment_id}/confirm")
+def admin_confirm_payment(payment_id: str, user=Depends(auth.require_owner)):
+    db.confirm_payment(payment_id)
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Publicação opcional — cada vídeo gerado é privado até o dono decidir publicá-lo.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/my-jobs")
+def my_jobs(user=Depends(auth.require_user)):
+    return {"jobs": db.list_my_jobs(user.id)}
+
+
+@app.post("/api/jobs/{job_id}/public")
+async def set_job_public(job_id: str, request: Request, user=Depends(auth.require_user)):
+    body = await request.json()
+    ok = db.set_job_public(job_id, user.id, bool(body.get("is_public")))
+    if not ok:
+        return JSONResponse({"error": "job não encontrado"}, status_code=404)
+    return {"ok": True}
+
+
+@app.get("/api/gallery")
+def gallery():
+    if not db.enabled():
+        return {"videos": []}
+    return {"videos": db.list_public_gallery()}
+
+
 @app.get("/")
-def index():
-    return HTMLResponse(open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8").read())
+def index(user=Depends(auth.get_current_user)):
+    if db.enabled() and user is None:
+        return RedirectResponse("/login")
+    return _page("index.html")
+
+
+@app.get("/login")
+def login_page(user=Depends(auth.get_current_user)):
+    if not db.enabled() or user is not None:
+        return RedirectResponse("/")
+    return _page("login.html")
+
+
+@app.get("/signup")
+def signup_page(user=Depends(auth.get_current_user)):
+    if not db.enabled() or user is not None:
+        return RedirectResponse("/")
+    return _page("signup.html")
+
+
+@app.get("/conta")
+def conta_page(user=Depends(auth.get_current_user)):
+    if db.enabled() and user is None:
+        return RedirectResponse("/login")
+    return _page("conta.html")
+
+
+@app.get("/explorar")
+def explorar_page():
+    return _page("explorar.html")
+
+
+@app.get("/admin")
+def admin_page(user=Depends(auth.get_current_user)):
+    if not db.enabled() or user is None or (user.email or "").lower() != auth.OWNER_EMAIL.lower():
+        return RedirectResponse("/")
+    return _page("admin.html")
 
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

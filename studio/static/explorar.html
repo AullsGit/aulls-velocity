@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explorar — Aulls Velocity</title>
+<link rel="stylesheet" href="/static/brand.css">
+</head>
+<body>
+<nav class="topbar">
+  <div class="brand"><span class="bolt">⚡</span> Aulls Velocity</div>
+  <div class="links"><a href="/">Gerar vídeo</a><a href="/conta">A minha conta</a></div>
+</nav>
+<div class="wrap">
+  <div class="card">
+    <h1 style="font-size:1.4rem">Explorar</h1>
+    <p class="hint">Edições publicadas pela comunidade — cada pessoa escolhe se quer partilhar a sua.</p>
+  </div>
+  <div class="grid-gallery" id="gallery"></div>
+  <p class="muted" id="empty" style="display:none;text-align:center;margin-top:30px">
+    Ainda não há vídeos publicados. Sê o/a primeiro/a — gera um vídeo e publica-o na tua conta.
+  </p>
+</div>
+<footer class="site">Aulls Velocity</footer>
+<script>
+(async () => {
+  const j = await (await fetch("/api/gallery")).json();
+  const vids = j.videos || [];
+  if (!vids.length) { document.getElementById("empty").style.display = "block"; return; }
+  document.getElementById("gallery").innerHTML = vids.map(v =>
+    `<video src="${v.video_url}" controls playsinline preload="metadata"></video>`
+  ).join("");
+})();
+</script>
+</body>
+</html>

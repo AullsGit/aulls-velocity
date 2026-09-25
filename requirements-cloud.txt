@@ -16,3 +16,4 @@ pillow==12.3.0
 librosa==1.0.0
 easyocr==1.7.2
 spandrel==0.4.2
+supabase==2.31.0

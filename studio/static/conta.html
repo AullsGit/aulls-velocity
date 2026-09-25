@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A minha conta — Aulls Velocity</title>
+<link rel="stylesheet" href="/static/brand.css">
+<style>
+  .num { font-family: 'Bebas Neue', sans-serif; font-size: 1.9rem; letter-spacing: .06em; color: var(--cyan); }
+  .steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+  .steps li { counter-increment: step; position: relative; padding: 0 0 16px 38px; }
+  .steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 0; width: 26px; height: 26px;
+    border-radius: 50%; background: var(--panel2); border: 1px solid var(--border); color: var(--cyan);
+    font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: .85rem;
+  }
+  .plans { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap: 10px; margin: 14px 0; }
+  .plans .p { border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; background: var(--panel2); }
+  .plans .p b { display: block; color: var(--cyan); }
+  .payrow { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: .9rem; }
+  .payrow:last-child { border-bottom: none; }
+  .videorow { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: .88rem; gap: 10px; }
+</style>
+</head>
+<body>
+<nav class="topbar">
+  <div class="brand"><span class="bolt">⚡</span> Aulls Velocity</div>
+  <div class="links"><a href="/">Gerar vídeo</a><a href="/explorar">Explorar</a><a href="#" id="logout">Sair</a></div>
+</nav>
+<div class="wrap" style="max-width:640px">
+  <div class="card">
+    <h1 style="font-size:1.4rem">A minha conta</h1>
+    <p class="hint" id="email-line">&nbsp;</p>
+    <div id="status-badges"></div>
+  </div>
+
+  <div class="card" id="pay-card">
+    <h2 style="font-size:1.15rem">Pagar a próxima edição</h2>
+    <p class="hint">Sem verificação automática — nunca pedimos o PIN nem qualquer dado da tua conta e‑Mola.
+      Fazes a transferência sempre a partir da tua própria aplicação e‑Mola (ou USSD <b>*898#</b>), nunca dentro deste site.</p>
+
+    <div class="plans">
+      <div class="p"><b>150 MT</b>Rápido</div>
+      <div class="p"><b>200 MT</b>Normal</div>
+      <div class="p"><b>300 MT</b>HD</div>
+    </div>
+
+    <ol class="steps">
+      <li>Abre a tua app e‑Mola (ou marca <b>*898#</b>) e transfere para o número:
+        <div class="num" id="emola-number">868116236</div>
+        <button type="button" class="secondary" id="btn-copy" style="margin-top:6px">Copiar número</button>
+      </li>
+      <li>Guarda a confirmação que o e‑Mola te enviar por SMS (não é obrigatório, mas ajuda a confirmar mais rápido).</li>
+      <li>Diz aqui quanto pagaste — fica "a aguardar confirmação" até o operador verificar a transferência recebida.</li>
+    </ol>
+
+    <form id="pay-form">
+      <label class="field">Valor pago (MT)</label>
+      <input type="number" id="amount" min="1" step="1" required placeholder="Ex.: 200">
+      <label class="field">Referência da SMS (opcional)</label>
+      <input type="text" id="reference" maxlength="200" placeholder="Ex.: últimos dígitos da confirmação">
+      <button class="primary" type="submit" id="btn-declare">Declarar pagamento</button>
+      <div class="err-box" id="pay-err"></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:1.15rem">Os meus pagamentos</h2>
+    <div id="payments-list" class="muted">a carregar…</div>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:1.15rem">Os meus vídeos</h2>
+    <div id="jobs-list" class="muted">a carregar…</div>
+  </div>
+</div>
+<footer class="site">Aulls Velocity</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const statusLabel = {pending: ["a aguardar confirmação", "warn"], confirmed: ["confirmado", "ok"], rejected: ["rejeitado", "err"]};
+let me = {local_mode: false, logged_in: false};
+
+async function loadMe() {
+  const j = await (await fetch("/api/me")).json();
+  me = j;
+  if (j.local_mode) { $("#pay-card").style.display = "none"; $("#email-line").textContent = "modo local (sem contas)"; return; }
+  if (!j.logged_in) { window.location.href = "/login"; return; }
+  $("#email-line").textContent = j.email;
+  $("#emola-number").textContent = j.emola_number;
+  const canEdit = j.can_edit;
+  $("#status-badges").innerHTML =
+    `<span class="badge ${j.free_edits_used < 1 ? "ok" : "cyan"}">edição grátis: ${j.free_edits_used < 1 ? "disponível" : "já usada"}</span> ` +
+    `<span class="badge ${j.paid_credits > 0 ? "ok" : "warn"}">créditos pagos: ${j.paid_credits}</span> ` +
+    `<span class="badge ${canEdit ? "ok" : "err"}">${canEdit ? "podes gerar um vídeo" : "precisas de pagar para continuar"}</span>`;
+}
+
+async function loadPayments() {
+  const j = await (await fetch("/api/payments/mine")).json();
+  const list = j.payments || [];
+  $("#payments-list").innerHTML = list.length ? list.map(p => {
+    const [label, cls] = statusLabel[p.status] || [p.status, "warn"];
+    return `<div class="payrow"><span>${p.amount_mt} MT ${p.reference ? "· " + p.reference : ""}</span><span class="badge ${cls}">${label}</span></div>`;
+  }).join("") : `<p class="muted">Ainda não declaraste nenhum pagamento.</p>`;
+}
+
+async function loadJobs() {
+  const j = await (await fetch("/api/my-jobs")).json();
+  const list = j.jobs || [];
+  $("#jobs-list").innerHTML = list.length ? list.map(job => `
+    <div class="videorow">
+      <span>${new Date(job.created_at).toLocaleDateString()} · <span class="badge ${job.status === "done" ? "ok" : "warn"}">${job.status}</span></span>
+      <span>
+        ${job.video_url ? `<a class="secondary" href="${job.video_url}" target="_blank">ver</a>` : ""}
+        ${job.status === "done" ? `<button type="button" class="secondary" data-id="${job.id}" data-pub="${job.is_public}">${job.is_public ? "despublicar" : "publicar"}</button>` : ""}
+      </span>
+    </div>`).join("") : `<p class="muted">Ainda não geraste nenhum vídeo.</p>`;
+  $("#jobs-list").querySelectorAll("button[data-id]").forEach(btn => btn.addEventListener("click", async () => {
+    const isPublic = btn.dataset.pub !== "true";
+    await fetch(`/api/jobs/${btn.dataset.id}/public`, {
+      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({is_public: isPublic}),
+    });
+    loadJobs();
+  }));
+}
+
+$("#btn-copy").addEventListener("click", () => {
+  navigator.clipboard?.writeText($("#emola-number").textContent).catch(() => {});
+  $("#btn-copy").textContent = "Copiado ✓";
+  setTimeout(() => $("#btn-copy").textContent = "Copiar número", 1500);
+});
+
+$("#pay-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#btn-declare").disabled = true; $("#pay-err").textContent = "";
+  try {
+    const r = await fetch("/api/payments/declare", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({amount_mt: $("#amount").value, reference: $("#reference").value}),
+    });
+    const j = await r.json();
+    if (!r.ok) { $("#pay-err").textContent = j.error || "não foi possível declarar"; $("#btn-declare").disabled = false; return; }
+    $("#amount").value = ""; $("#reference").value = "";
+    loadPayments();
+  } finally { $("#btn-declare").disabled = false; }
+});
+
+$("#logout").addEventListener("click", async (e) => {
+  e.preventDefault();
+  await fetch("/api/auth/logout", {method: "POST"});
+  window.location.href = "/login";
+});
+
+(async () => {
+  await loadMe();
+  if (!me.local_mode) { loadPayments(); loadJobs(); }
+  else {
+    $("#payments-list").innerHTML = "";
+    $("#jobs-list").innerHTML = "";
+  }
+})();
+</script>
+</body>
+</html>

@@ -188,3 +188,68 @@ Preparado (tudo o que dá para preparar sem uma conta pessoal do utilizador):
 Por fazer (depende de ações do utilizador, fora do meu alcance): criar o repositório GitHub e
 fazer push; criar conta Render e aplicar o blueprint; depois do primeiro deploy, testar uma
 geração real ponta-a-ponta no link público antes de divulgar.
+
+**Concluído nesta sessão** (feito via `gh` CLI portátil, autenticado pelo próprio utilizador
+por device-code — nunca vi a password): repositório `AullsGit/aulls-velocity` criado (privado)
+e código enviado; deploy no Render confirmado a funcionar em produção
+(`https://aulls-velocity-studio.onrender.com`, `/health` respondeu OK).
+
+## Atualização — contas, paywall e pagamentos (2026-09-25, noite)
+
+Pedido do utilizador: 1ª edição grátis, depois exigir pagamento; pagamento por declaração do
+valor (sem verificar PIN do e-Mola, número fixo 868116236, fluxo em que o cliente se sinta
+seguro); login formal ("estilo Instagram.web"); quem quiser pode publicar os vídeos gerados.
+Também perguntou que base de dados está a ser usada, e sugeriu Firebase para "acelerar o
+processamento".
+
+- **Resposta à pergunta**: antes desta atualização, nenhuma — `studio/server.py` guardava tudo
+  num dicionário Python em memória, perdido a cada reinício (crítico no Render free, que não
+  tem disco persistente). Corrigido agora com Supabase.
+- **Correção ao pedido do utilizador**: uma base de dados não acelera o processamento de vídeo
+  (isso é CPU/GPU, não armazenamento) — expliquei isto diretamente em vez de implementar algo
+  que não resolveria o problema. Fica registado para quando fizer sentido: mover só a geração
+  para um serviço com mais CPU/GPU (ex.: Modal.com, tier grátis generoso) é o próximo passo real
+  de velocidade, não feito agora.
+- **Escolhido Supabase em vez de Firebase**: Postgres relacional (mais adequado a
+  utilizador→pagamentos→vídeos do que o NoSQL do Firestore), Auth com hash de password gerido
+  pelo próprio Supabase, e Storage grátis que resolve também a perda de vídeos ao reiniciar.
+- **`supabase-schema.sql`** (novo, raiz do repo) — tabelas `profiles`/`jobs`/`payments`, trigger
+  de criação automática de perfil, e funções Postgres atómicas `can_edit`/`consume_edit`/
+  `confirm_payment` (lógica de créditos na BD, não em Python, para não haver corrida entre
+  pedidos simultâneos).
+- **`studio/db.py`** (novo) — cliente Supabase (service_role key, nunca exposta ao browser).
+  `db.enabled()` é False sem `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` — nesse caso o site volta ao
+  comportamento original (sem login, sem limite), para não obrigar quem só quer correr
+  `run_studio.py` localmente a ter conta Supabase.
+- **`studio/auth.py`** (novo) — sessão via cookie httponly com o access/refresh token do
+  Supabase Auth (nunca guardamos nem vemos passwords em claro — isso é todo tratado pelo
+  Supabase). `require_owner` restringe `/admin` ao email em `VELOCITY_OWNER_EMAIL`.
+- **`studio/server.py`**: gate de login+paywall em `POST /api/jobs` (401 sem sessão, 402 sem
+  crédito); persiste jobs na BD e sobe o vídeo final para o Supabase Storage; endpoints de
+  auth (`/api/auth/*`), pagamentos (`/api/payments/*`, `/api/admin/payments/*`), publicação
+  opcional (`/api/jobs/{id}/public`, `/api/gallery`) e páginas novas (`/login`, `/signup`,
+  `/conta`, `/explorar`, `/admin`).
+- **Pagamento por declaração, não automático** — não existe (nem seria seguro pedir) qualquer
+  ligação ao PIN da conta e-Mola. O cliente transfere pelo próprio telemóvel para 868116236,
+  declara o valor na app (fica "pending"), e só o operador confirma manualmente em `/admin`
+  depois de ver o dinheiro a entrar — é aí que o crédito é atribuído (função `confirm_payment`).
+- **`studio/static/brand.css`** (novo) — identidade visual partilhada (mesma paleta/tipografia
+  da landing page: Bebas Neue + Manrope, ciano/magenta) entre todas as páginas do Studio, para
+  a marca ficar coerente ("extremamente formal" pedido pelo utilizador).
+- **Bug real encontrado e corrigido durante o teste**: `/api/jobs/mine` colidia com a rota
+  já existente `/api/jobs/{job_id}` (declarada antes — `{job_id}` capturava literalmente
+  "mine"), devolvendo sempre 404. Renomeado para `/api/my-jobs`. Confirmado com
+  `fastapi.testclient.TestClient` + mocks do `db`/`auth` (sem precisar de projeto Supabase
+  real): gates 401/402, admin 403 para não-donos, endpoints de pagamento/publicação — todos
+  verificados a devolver o que deviam antes deste bug ser corrigido.
+- Testado visualmente no browser (modo local, sem Supabase configurado): nav responsiva em
+  ecrã estreito corrigida (quebrava mal no telemóvel), páginas login/conta/explorar renderizam
+  consistentes com a marca. Suite `pytest -m "not bench"` (5 testes rápidos) continua a passar.
+
+### Por fazer (só o utilizador consegue)
+- Criar projeto Supabase, correr `supabase-schema.sql`, e definir `SUPABASE_URL` /
+  `SUPABASE_SERVICE_KEY` / `VELOCITY_OWNER_EMAIL` no Render — passo a passo em `docs/DEPLOY.md`.
+  Sem isto, o site em produção continua no modo antigo (sem login/paywall).
+- Testar o fluxo completo uma vez com Supabase real: criar conta, gerar a edição grátis,
+  tentar gerar uma 2ª (deve bloquear), declarar um pagamento fictício, confirmar em `/admin`,
+  confirmar que desbloqueia.
