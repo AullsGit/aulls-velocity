@@ -1,5 +1,9 @@
 r"""Lançador de testes: lê as pastas teste/1_reference, 2_inputs, 3_music e escreve em 4_output.
-Uso:  venv\Scripts\python.exe testar.py [--size 1080x1920] [--force] [--sem-musica]"""
+Uso:  venv\Scripts\python.exe testar.py [--profile fast|standard|hd] [--force] [--sem-musica]
+Perfis (--profile, por defeito 'standard'): fast = pré-visualização rápida; standard = qualidade
+normal de entrega; hd = qualidade máxima para entrega final (mais lento). Duração do vídeo final
+ajusta-se automaticamente para ~25-30s (repete o padrão da referência com material novo, se for
+curta) — use --no-extend para desligar e sair com a duração exata da referência."""
 import glob
 import os
 import sys
@@ -39,5 +43,6 @@ if os.path.exists(txt):
     lines = [l.strip() for l in open(txt, encoding="utf-8") if l.strip()]
     if lines:
         args += ["--text", *lines]
-print(f"Referência: {os.path.basename(refs[0])} | {len(clips)} clip(s) | música: {os.path.basename(music[0]) if use_music else 'áudio da referência'}")
+profile = next((extra[i + 1] for i, x in enumerate(extra) if x == "--profile"), "standard")
+print(f"Referência: {os.path.basename(refs[0])} | {len(clips)} clip(s) | música: {os.path.basename(music[0]) if use_music else 'áudio da referência'} | perfil: {profile}")
 sys.exit(main(args))

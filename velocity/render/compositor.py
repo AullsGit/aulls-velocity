@@ -176,15 +176,17 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None):
 
 
 class _Writer:
-    def __init__(self, path: str, w: int, h: int, fps: float, music: str | None, music_offset: float, duration: float, crf: int):
+    def __init__(self, path: str, w: int, h: int, fps: float, music: str | None, music_offset: float, duration: float, crf: int, preset: str = "medium"):
         cmd = ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", str(fps), "-i", "-"]
         if music:
-            cmd += ["-ss", f"{music_offset:.3f}", "-i", music]
+            # -stream_loop -1: cobre o caso de o vídeo (agora até ~30s, ver matching/extend.py) ser
+            # mais longo que a faixa de áudio disponível — sem isto a 2ª metade saía muda.
+            cmd += ["-stream_loop", "-1", "-ss", f"{music_offset:.3f}", "-i", music]
         cmd += ["-map", "0:v"]
         if music:
             fade_start = max(duration - 0.4, 0)
             cmd += ["-map", "1:a", "-af", f"afade=t=out:st={fade_start:.3f}:d=0.4", "-c:a", "aac", "-b:a", "192k", "-t", f"{duration:.4f}"]
-        cmd += ["-c:v", "libx264", "-crf", str(crf), "-preset", "medium", "-pix_fmt", "yuv420p", "-movflags", "+faststart", path]
+        cmd += ["-c:v", "libx264", "-crf", str(crf), "-preset", preset, "-pix_fmt", "yuv420p", "-movflags", "+faststart", path]
         self.p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
     def write(self, img: np.ndarray):
@@ -197,9 +199,9 @@ class _Writer:
             raise RuntimeError(f"ffmpeg encode falhou: {err[-600:]}")
 
 
-def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dict | None = None) -> str:
+def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dict | None = None, preset: str = "medium") -> str:
     duration = tl.n_frames / tl.fps
-    w = _Writer(out_path, tl.width, tl.height, tl.fps, tl.music_path, tl.music_offset_s, duration, crf)
+    w = _Writer(out_path, tl.width, tl.height, tl.fps, tl.music_path, tl.music_offset_s, duration, crf, preset)
     all_trans = [s.transition_in for s in tl.shots if s.transition_in is not None]
     post_lut = None
     if abs(tl.post_gamma - 1.0) > 0.01 or abs(tl.post_contrast - 1.0) > 0.01:
