@@ -1,0 +1,18 @@
+# Dependências para o deploy na nuvem (Dockerfile). Só os pacotes que o código
+# realmente importa (ver `grep -rho "^\s*(import|from) ..." velocity/ studio/`) —
+# versões dos transitivos ficam ao critério do pip, para o build funcionar em Linux
+# (a máquina de desenvolvimento é Windows; nem todas as versões exatas do freeze
+# local têm roda para Linux). torch/torchvision instalam-se à parte no Dockerfile
+# (índice CPU-only da PyTorch, para não puxar as bibliotecas CUDA — múltiplos GB
+# desnecessários num serviço sem GPU).
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+python-multipart==0.0.32
+pydantic==2.13.5
+numpy==2.5.3
+scipy==1.18.1
+opencv-contrib-python-headless
+pillow==12.3.0
+librosa==1.0.0
+easyocr==1.7.2
+spandrel==0.4.2

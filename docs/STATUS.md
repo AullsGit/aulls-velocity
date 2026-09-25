@@ -148,3 +148,43 @@ defeito com alternância de idioma; forma de pagamento internacional viável já
   para mercados com maior poder de compra é uma escolha deliberada, não um erro de câmbio.
 - Marca atualizada para "Aulls Velocity" com slogan ("Steal the rhythm. Not the video." / PT
   "Rouba o ritmo. Não o vídeo.", traduzido nas 4 línguas).
+
+## Atualização — deploy da app real na nuvem (2026-09-25, noite)
+
+Pedido do utilizador: a landing page (`marketing/landing.html`) é só divulgação — o pedido foi
+para publicar a APLICAÇÃO (Velocity Studio) num link público, usável por qualquer pessoa via
+navegador, sem precisar de instalar nada nem de correr localmente.
+
+Preparado (tudo o que dá para preparar sem uma conta pessoal do utilizador):
+- `Dockerfile` — Python 3.11-slim + ffmpeg + libs de sistema para o OpenCV headless; PyTorch
+  instalado à parte a partir do índice CPU-only oficial (evita puxar pacotes CUDA, inúteis sem
+  GPU); `VELOCITY_NO_TEXT=1` por defeito na imagem (EasyOCR exige download de modelos e RAM
+  extra — inaceitável num free tier de 512MB; o texto sobreposto é um extra, não o núcleo).
+- `.dockerignore`, `requirements-cloud.txt` (lista mínima real de dependências, obtida por
+  grep aos imports de `velocity/`/`studio/` — confirmou que `mediapipe`, `anthropic`,
+  `matplotlib`, `pytesseract`, `open_clip_torch`, `scenedetect` não são usados em runtime).
+- `render.yaml` — blueprint do Render.com (plano free) já com as variáveis de ambiente de
+  segurança abaixo pré-configuradas para os limites apertados do free tier.
+- **`studio/server.py` reforçado para exposição pública** (antes só previsto para um operador
+  local, sem proteção nenhuma):
+  - `/health` — endpoint de vida para o healthcheck do Render.
+  - limite de tamanho de upload REALMENTE aplicado por streaming/contagem de bytes
+    (`VELOCITY_MAX_UPLOAD_MB`; antes existia só a constante `MAX_UPLOAD_MB`, nunca verificada —
+    lacuna identificada e agora fechada).
+  - limite de nº de clipes por pedido (`VELOCITY_MAX_CLIPS`).
+  - fila com tamanho máximo (`VELOCITY_MAX_QUEUE`) — acima disso, resposta 503 imediata em vez
+    de deixar acumular pedidos que a CPU fraca do free tier nunca despacharia a tempo.
+  - limite de pedidos por IP por hora (`VELOCITY_RATE_LIMIT_JOBS`/`_WINDOW_S`, janela deslizante
+    em memória) — protege contra um único visitante (ou bot) monopolizar a única instância.
+  - Verificado com `fastapi.testclient.TestClient` (sem servidor real): `/health` responde,
+    upload acima do limite devolve 413 e limpa o diretório do job, 3ª tentativa dentro da janela
+    de rate-limit devolve 429. Não há teste automatizado (`pytest`) dedicado — smoke test manual
+    documentado aqui.
+- `docs/DEPLOY.md` — guia passo a passo para o utilizador (os 2 únicos passos que só ele pode
+  fazer: criar o repositório no GitHub e ligar conta Render ao blueprint), incluindo limitações
+  honestas do plano gratuito (512MB RAM, adormece ao fim de 15min, armazenamento não-persistente,
+  um vídeo de cada vez) e o caminho de upgrade (~$7/mês) quando houver clientes reais.
+
+Por fazer (depende de ações do utilizador, fora do meu alcance): criar o repositório GitHub e
+fazer push; criar conta Render e aplicar o blueprint; depois do primeiro deploy, testar uma
+geração real ponta-a-ponta no link público antes de divulgar.

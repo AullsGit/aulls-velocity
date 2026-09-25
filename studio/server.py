@@ -17,13 +17,14 @@ import threading
 import time
 import traceback
 import uuid
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from queue import Queue
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from fastapi import FastAPI, File, Form, UploadFile  # noqa: E402
+from fastapi import FastAPI, File, Form, Request, UploadFile  # noqa: E402
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
@@ -32,11 +33,45 @@ from velocity.pipeline import PROFILES, MakeParams, run_make  # noqa: E402
 from velocity.reference.analyzer import analyze_reference  # noqa: E402
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-MAX_UPLOAD_MB = 300
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
 AUDIO_EXT = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}
+MAX_UPLOAD_MB = int(os.environ.get("VELOCITY_MAX_UPLOAD_MB", "300"))
+MAX_CLIPS = int(os.environ.get("VELOCITY_MAX_CLIPS", "30"))
+MAX_QUEUE = int(os.environ.get("VELOCITY_MAX_QUEUE", "3"))
+# Num serviço público e de baixo custo (ex.: free tier, 1 CPU), cada job ocupa a única
+# instância durante minutos — sem isto, um único IP podia enfileirar dezenas de jobs e
+# bloquear todos os outros visitantes.
+RATE_LIMIT_JOBS = int(os.environ.get("VELOCITY_RATE_LIMIT_JOBS", "5"))
+RATE_LIMIT_WINDOW_S = int(os.environ.get("VELOCITY_RATE_LIMIT_WINDOW_S", "3600"))
+START_TIME = time.time()
 
 app = FastAPI(title="Velocity Studio")
+
+_rate_lock = threading.Lock()
+_rate_hits: dict[str, deque] = defaultdict(deque)
+
+
+def _client_ip(req: Request) -> str:
+    fwd = req.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return req.client.host if req.client else "unknown"
+
+
+def _rate_limited(ip: str) -> bool:
+    now = time.time()
+    with _rate_lock:
+        hits = _rate_hits[ip]
+        while hits and now - hits[0] > RATE_LIMIT_WINDOW_S:
+            hits.popleft()
+        if len(hits) >= RATE_LIMIT_JOBS:
+            return True
+        hits.append(now)
+        return False
+
+
+class UploadTooLarge(Exception):
+    pass
 
 
 @dataclass
@@ -89,8 +124,23 @@ def _save_upload(f, dest_dir: str) -> str:
     while os.path.exists(path):
         path = f"{base}_{i}{ext}"
         i += 1
-    with open(path, "wb") as out:
-        shutil.copyfileobj(f.file, out)
+    max_bytes = MAX_UPLOAD_MB * 1024 * 1024
+    written = 0
+    chunk = 1024 * 1024
+    try:
+        with open(path, "wb") as out:
+            while True:
+                buf = f.file.read(chunk)
+                if not buf:
+                    break
+                written += len(buf)
+                if written > max_bytes:
+                    raise UploadTooLarge(f"{f.filename}: excede o limite de {MAX_UPLOAD_MB}MB")
+                out.write(buf)
+    except UploadTooLarge:
+        if os.path.exists(path):
+            os.remove(path)
+        raise
     return path
 
 
@@ -132,6 +182,7 @@ threading.Thread(target=_worker, daemon=True).start()
 
 @app.post("/api/jobs")
 async def create_job(
+    request: Request,
     reference: UploadFile = File(...),
     clips: list[UploadFile] = File(...),
     music: UploadFile | None = File(None),
@@ -140,10 +191,23 @@ async def create_job(
     force: bool = Form(False),
     text: str = Form(""),
 ):
+    ip = _client_ip(request)
+    if _rate_limited(ip):
+        return JSONResponse(
+            {"error": f"limite de {RATE_LIMIT_JOBS} pedidos por hora atingido. Tenta mais tarde."},
+            status_code=429,
+        )
+    if QUEUE.qsize() >= MAX_QUEUE:
+        return JSONResponse(
+            {"error": "servidor ocupado — há muitos vídeos em fila. Tenta novamente daqui a alguns minutos."},
+            status_code=503,
+        )
     if not _ext_ok(reference.filename, VIDEO_EXT):
         return JSONResponse({"error": f"referência: formato não suportado ({reference.filename})"}, status_code=400)
     if not clips:
         return JSONResponse({"error": "envie pelo menos 1 vídeo seu"}, status_code=400)
+    if len(clips) > MAX_CLIPS:
+        return JSONResponse({"error": f"máximo de {MAX_CLIPS} vídeos por pedido"}, status_code=400)
     for c in clips:
         if not _ext_ok(c.filename, VIDEO_EXT):
             return JSONResponse({"error": f"vídeo do utilizador: formato não suportado ({c.filename})"}, status_code=400)
@@ -155,9 +219,13 @@ async def create_job(
     job_id = uuid.uuid4().hex[:12]
     job_dir = os.path.join(DATA_DIR, job_id)
     os.makedirs(job_dir, exist_ok=True)
-    ref_path = _save_upload(reference, job_dir)
-    clip_paths = [_save_upload(c, job_dir) for c in clips]
-    music_path = _save_upload(music, job_dir) if (music is not None and music.filename) else None
+    try:
+        ref_path = _save_upload(reference, job_dir)
+        clip_paths = [_save_upload(c, job_dir) for c in clips]
+        music_path = _save_upload(music, job_dir) if (music is not None and music.filename) else None
+    except UploadTooLarge as e:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        return JSONResponse({"error": str(e)}, status_code=413)
 
     json.dump({"ref": ref_path, "clips": clip_paths, "music": music_path, "profile": profile,
                "subject_enhance": subject_enhance, "force": force, "text": text},
@@ -213,6 +281,11 @@ async def check_reference(reference: UploadFile = File(...)):
 
 os.makedirs(DATA_DIR, exist_ok=True)
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "uptime_s": round(time.time() - START_TIME, 1), "queue": QUEUE.qsize()}
 
 
 @app.get("/")

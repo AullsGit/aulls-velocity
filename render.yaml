@@ -1,0 +1,24 @@
+# Blueprint do Render.com — cria o serviço com um clique em vez de configurar tudo
+# manualmente no dashboard. Ver docs/DEPLOY.md para o passo a passo.
+services:
+  - type: web
+    name: aulls-velocity-studio
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: VELOCITY_NO_TEXT
+        value: "1"
+      # Free tier = 512MB RAM / 0.1 CPU: limites mais apertados que os defaults do código,
+      # para reduzir o risco de um pedido grande ou vários em fila esgotarem a memória.
+      - key: VELOCITY_MAX_UPLOAD_MB
+        value: "150"
+      - key: VELOCITY_MAX_CLIPS
+        value: "20"
+      - key: VELOCITY_MAX_QUEUE
+        value: "2"
+      - key: VELOCITY_RATE_LIMIT_JOBS
+        value: "5"
+      - key: VELOCITY_RATE_LIMIT_WINDOW_S
+        value: "3600"
