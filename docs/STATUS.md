@@ -70,3 +70,59 @@ Problemas abertos (por ordem de impacto):
 4. Texto que aparece letra a letra e marcas de canal grandes escapam ao filtro do OCR.
 5. Impactos da curva de energia do output não alinham ao tempo dos da referência (0 de 5 em aggr_10), apesar de a curva correlacionar 0.74.
 6. GPU limitada a 10 W pelo portátil (NitroSense): segmentação ~0.55 s/frame, SR ~2.6 s/frame.
+
+## Atualização — pronto para lançamento: duração-alvo, Studio, sprint de 72h (2026-09-25)
+
+Foco desta sessão: sair de "motor que funciona em bench/" para "produto que um operador consegue
+usar para servir clientes reais". Mudanças:
+
+1. **Duração-alvo do produto (25-30s) — a maior lacuna anterior.** `velocity/matching/extend.py`:
+   referências curtas (a maioria das reais, 10-20s) têm o seu padrão de corte/efeito REPETIDO
+   (com material NOVO do utilizador a cada volta — o matching já penaliza reutilização) até caber
+   em 25-31s, com uma transição de costura no ponto de loop escolhida a partir do estilo mais
+   representativo já medido na própria referência; referências longas de mais são aparadas no
+   limite superior, num limite de plano. Todos os campos derivados (signature/audio/vibe) são
+   RECALCULADOS sobre a timeline estendida — essa timeline estendida passa a ser o alvo real
+   contra o qual o resultado é avaliado, não a referência curta original. Testado (round-trip +
+   render real): duração final sempre dentro do alvo, cortes sem sobreposição, transição de costura
+   inspecionada visualmente (parece um corte normal da própria referência).
+2. **Perfis de qualidade/velocidade** (`--profile fast|standard|hd`, também no Studio): tempo de
+   geração do perfil "standard" (720x1280, 1 iteração de correção) caiu de ~7min24s para ~3min28s
+   por vídeo de 30s, sem perda de fidelidade mensurável — as duas maiores poupanças foram (a) o
+   OCR (EasyOCR) estava a correr em CADA reanálise do próprio output, onde nunca é usado — removido;
+   (b) `-preset fast` do libx264 em vez de `medium` nos perfis não-HD.
+3. **`velocity/pipeline.py`**: a lógica de geração (antes só dentro de `cli.cmd_make`) foi extraída
+   para ser chamada tanto pela CLI como pelo Studio NO MESMO PROCESSO — evita repagar o arranque de
+   modelos (EasyOCR, segmentador de pessoas) a cada encomenda, o maior custo fixo por geração.
+4. **Velocity Studio** (`studio/`, `run_studio.py`): interface web local (FastAPI, um único
+   operador, um job de cada vez) — upload de referência/clips/música, verificação prévia da
+   referência (aprovada/recusada, com motivo), perfis, progresso em direto, pré-visualização e
+   download do resultado. Testado ponta a ponta via API real (não só a UI): geração completa
+   (vídeo válido, duração no alvo) e o caminho de rejeição (referência não-Velocity).
+5. **Robustez**: `cli.main` nunca mais rebenta com stack trace (captura e devolve erro limpo,
+   com relatório de erro se `--report` for passado); corrigido um crash real do matching quando
+   TODAS as janelas de um clip estão marcadas como instáveis (ficheiro de teste do próprio
+   utilizador, um output anterior usado por engano como input); áudio de referência/música agora
+   faz LOOP automático quando o vídeo fica mais longo que a faixa disponível (antes a 2ª metade
+   de um vídeo estendido saía muda); higiene de git — `teste/` (vídeos pessoais) deixou de ser
+   versionado.
+6. **Material de vendas**: `marketing/landing.html` (publicada como Artifact privado) e
+   `marketing/mensagens.md` (mensagens WhatsApp/Instagram, checklist de encomenda). Demos gerados
+   com o material de bench foram enviados ao utilizador para revisão PRIVADA, não publicados —
+   a referência usada nos testes tem proveniência de terceiros (edições encontradas online);
+   para material de marketing público, gerar demos novos com conteúdo próprio via o Studio.
+
+Testes: 17 (todos os anteriores + `tests/test_extend.py`, 4 casos: referência curta repetida,
+referência já no alvo mantida intacta, referência longa aparada, render real da timeline
+estendida com duração exata). Falta cobertura de teste automático para `studio/server.py`
+em si (validado manualmente via curl contra o servidor real, não com pytest).
+
+### Ainda por fazer para uma v2 (não bloqueia o lançamento)
+- WhatsApp/M-Pesa/e-Mola na landing page e em `mensagens.md` são placeholders — substituir pelos
+  reais antes de divulgar.
+- Nenhum mecanismo de pagamento automático (deliberado, por pedido do utilizador — fluxo manual
+  via WhatsApp + confirmação de M-Pesa/e-Mola).
+- `studio/server.py` não tem autenticação nem limite de tamanho de upload reforçado — aceitável
+  para uso local por um único operador; NÃO expor à Internet sem adicionar isso primeiro.
+- Os 6 problemas em aberto listados acima (filmagem única, vocabulário de efeitos, transições por
+  máscara, texto letra-a-letra, alinhamento de impactos, GPU a 10W) continuam válidos.
