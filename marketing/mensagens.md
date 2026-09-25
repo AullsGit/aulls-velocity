@@ -1,13 +1,13 @@
-# Materiais de divulgação — Velocity Edits
+# Materiais de divulgação — Aulls Velocity
 
-Preenche `[o teu número]` e `[o teu M-Pesa/e-Mola]` antes de usar (aparecem também na
-`landing.html`, procura por `258000000000` e `[o teu número aqui]`).
+Contacto/WhatsApp e e-Mola já preenchidos com +258 86 811 6236 (mesmo número para os dois,
+assumido — corrige em todos os ficheiros se o WhatsApp for outro número).
 
 ---
 
 ## Mensagem para grupos de WhatsApp / Status
 
-⚡ *VELOCITY EDITS* ⚡
+⚡ *AULLS VELOCITY* ⚡
 
 Gostas daqueles vídeos com cortes rápidos, zoom e efeitos ao ritmo da música
 (tipo os que vês no TikTok)? Eu faço isso com os TEUS vídeos.
@@ -18,7 +18,7 @@ Como funciona:
 3️⃣ Eu devolvo o teu vídeo editado no mesmo estilo — pronto em menos de 1 dia
 
 💰 Desde 150 MT
-📲 Chama-me: [o teu número]
+📲 Chama-me: +258 86 811 6236
 
 Funciona com qualquer tema — futebol, dança, carro, treino, o que quiseres.
 Manda "DEMO" que te mostro um exemplo.
@@ -33,7 +33,7 @@ Agora dá para fazeres o teu — com os TEUS vídeos.
 Manda-me a referência que gostas + os teus clipes, e eu devolvo a tua edição
 no mesmo estilo: cortes, zoom, ritmo, tudo. 🎬⚡
 
-💰 A partir de 150 MT | 📲 WhatsApp: [o teu número]
+💰 A partir de 150 MT | 📲 WhatsApp: +258 86 811 6236
 .
 .
 .
@@ -49,7 +49,7 @@ Temos 3 planos:
 • *HD* — 300 MT (máxima qualidade + 1 ajuste incluído)
 
 Manda-me a referência e os teus vídeos que já te digo o prazo. Pagamento por
-M-Pesa/e-Mola: [o teu número].
+M-Pesa/e-Mola: +258 86 811 6236.
 
 ---
 
