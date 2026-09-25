@@ -126,3 +126,25 @@ em si (validado manualmente via curl contra o servidor real, não com pytest).
   para uso local por um único operador; NÃO expor à Internet sem adicionar isso primeiro.
 - Os 6 problemas em aberto listados acima (filmagem única, vocabulário de efeitos, transições por
   máscara, texto letra-a-letra, alinhamento de impactos, GPU a 10W) continuam válidos.
+
+## Atualização — público global, i18n e pagamento internacional (2026-09-25, tarde)
+
+Pedido do utilizador: alvo deixa de ser só Moçambique, passa a ser global; site em inglês por
+defeito com alternância de idioma; forma de pagamento internacional viável já.
+
+- **Pagamento internacional: PayPal.** Verificado na documentação oficial do PayPal
+  (developer.paypal.com/payouts/supported-features, atualizada 10/set/2026): Moçambique está
+  na categoria "Send, receive, and withdraw" — sem restrições para receber/levantar. É a opção
+  mais rápida de ativar sem espera de aprovação (basta um link `paypal.me/<utilizador>`).
+  PayPal.me ainda **não está criado** — `PAYPAL_ME` em `landing.html` é placeholder
+  (`paypal.me/AullsVelocity`); ver `marketing/mensagens.md` para os passos.
+- **`marketing/landing.html` reescrita com i18n cliente** (EN/PT/ES/FR, dicionário JS,
+  deteção automática por `navigator.language` com fallback para inglês, preferência guardada em
+  localStorage) e um alternador de região (Internacional/USD/PayPal vs Moçambique/MT/e-Mola-
+  WhatsApp) independente do idioma — também com deteção automática (fuso horário
+  `Africa/Maputo`). Testado interagindo com o DOM real (`form_input`/`click`), não só visualmente:
+  troca de idioma e de região confirmadas a atualizar todo o texto, preços e método de pagamento.
+- Preços internacionais fixados em USD (5/8/12) independentes da conversão MT — preço mais alto
+  para mercados com maior poder de compra é uma escolha deliberada, não um erro de câmbio.
+- Marca atualizada para "Aulls Velocity" com slogan ("Steal the rhythm. Not the video." / PT
+  "Rouba o ritmo. Não o vídeo.", traduzido nas 4 línguas).

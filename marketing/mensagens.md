@@ -53,6 +53,34 @@ M-Pesa/e-Mola: +258 86 811 6236.
 
 ---
 
+## Pagamento internacional — PayPal (confirmado: Moçambique está na lista "receive and withdraw"
+da documentação oficial do PayPal, consultada em 25/09/2026)
+
+1. Cria/entra numa conta PayPal normal (grátis, só precisa de email — https://paypal.com).
+2. Vai a paypal.me e reclama o teu link, por exemplo `paypal.me/AullsVelocity` — leva 2 minutos,
+   sem aprovação.
+3. **Atualiza a landing page**: no ficheiro `marketing/landing.html`, muda a constante
+   `PAYPAL_ME` (perto do topo do `<script>`) para o teu link real, e republica o Artifact.
+4. Levantas o dinheiro do PayPal para o teu banco/mobile money em Moçambique normalmente
+   (confirma taxas e prazos na tua própria conta PayPal, variam com o método de levantamento).
+
+⚠️ Enquanto não fizeres isto, o botão "Order"/"Pedir" no modo Internacional aponta para um
+link `paypal.me/AullsVelocity` que ainda NÃO existe — substitui antes de divulgares o site
+fora de Moçambique.
+
+## Mensagem em inglês (clientes internacionais)
+
+⚡ *AULLS VELOCITY* ⚡
+
+Love those fast-cut, beat-synced edits (Velocity edits)? I make those — with YOUR footage.
+
+1️⃣ Send me a Velocity edit you like (the reference)
+2️⃣ Send your own clips/photos
+3️⃣ You get your video back, same style, same energy — ready in under 24h
+
+💰 From $5 | 💳 Payment via PayPal
+Works with any topic — sports, dance, gaming, lifestyle, anything.
+
 ## Checklist antes de aceitar uma encomenda
 
 - [ ] Recebi 1 vídeo de referência (Velocity real — cortes rápidos, efeitos, música)
