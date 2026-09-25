@@ -11,3 +11,11 @@ bench/cache/
 *.tflite
 bench/out/
 bench/models/
+teste/1_reference/*
+teste/2_inputs/*
+teste/3_music/*
+teste/4_output/*
+!teste/1_reference/.gitkeep
+!teste/2_inputs/.gitkeep
+!teste/3_music/.gitkeep
+!teste/4_output/.gitkeep
