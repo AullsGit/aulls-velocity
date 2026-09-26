@@ -43,39 +43,72 @@ create table if not exists public.jobs (
 create table if not exists public.payments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  amount_mt numeric not null,
+  amount_mt numeric,               -- fluxo antigo (e-Mola, Moçambique) — mantido, ver "provider"
   reference text,
   status text not null default 'pending', -- pending | confirmed | rejected
   created_at timestamptz not null default now(),
   confirmed_at timestamptz
 );
 
--- Regista o consumo de uma edição: usa a grátis primeiro, depois um crédito pago.
--- Função (não lógica em Python) para não haver corrida entre pedidos simultâneos.
+-- Migração idempotente (segura de correr outra vez mesmo que a tabela já exista de uma
+-- versão anterior deste ficheiro): acrescenta as colunas do fluxo PayPal sem tocar nos
+-- dados já lá guardados. "provider" distingue os dois fluxos que coexistem: 'emola'
+-- (declaração manual, amount_mt+reference) e 'paypal' (automático, confirmado por
+-- webhook — nunca por o cliente simplesmente dizer "paguei").
+alter table public.payments alter column amount_mt drop not null;
+alter table public.payments add column if not exists provider text not null default 'emola';
+alter table public.payments add column if not exists provider_payment_id text;
+alter table public.payments add column if not exists currency text not null default 'MT';
+alter table public.payments add column if not exists amount_usd numeric;
+alter table public.payments add column if not exists pack_id text;
+alter table public.payments add column if not exists credits integer not null default 1;
+
+-- Nunca processar a mesma captura do PayPal duas vezes (o PayPal pode reenviar o mesmo
+-- webhook mais que uma vez — isto é o que impede creditar 2x pela mesma compra).
+create unique index if not exists payments_provider_payment_id_uniq
+  on public.payments (provider, provider_payment_id) where provider_payment_id is not null;
+
+-- SEM plano grátis: só há edição com créditos pagos (PayPal ou e-Mola confirmado).
+-- "free_edits_used" fica na tabela só por compatibilidade com dados antigos; deixou de ser lido.
 create or replace function public.consume_edit(p_user_id uuid)
 returns void as $$
-declare
-  v_free int;
 begin
-  select free_edits_used into v_free from public.profiles where id = p_user_id for update;
-  if v_free < 1 then
-    update public.profiles set free_edits_used = free_edits_used + 1 where id = p_user_id;
-  else
-    update public.profiles set paid_credits = greatest(paid_credits - 1, 0) where id = p_user_id;
-  end if;
+  update public.profiles set paid_credits = greatest(paid_credits - 1, 0) where id = p_user_id;
 end;
 $$ language plpgsql security definer set search_path = public;
 
 create or replace function public.can_edit(p_user_id uuid)
 returns boolean as $$
 declare
-  v_free int; v_credits int;
+  v_credits int;
 begin
-  select free_edits_used, paid_credits into v_free, v_credits
-    from public.profiles where id = p_user_id;
-  return coalesce(v_free, 0) < 1 or coalesce(v_credits, 0) > 0;
+  select paid_credits into v_credits from public.profiles where id = p_user_id;
+  return coalesce(v_credits, 0) > 0;
 end;
 $$ language plpgsql stable security definer set search_path = public;
+
+-- Concede créditos depois de um pagamento PayPal confirmado pelo webhook (nunca pelo
+-- frontend). Idempotente: se "provider_payment_id" já existir, não faz nada e devolve
+-- false — protege contra o PayPal reenviar o mesmo evento (replay).
+create or replace function public.grant_paypal_credits(
+  p_user_id uuid, p_payment_id text, p_amount_usd numeric, p_pack_id text, p_credits int
+) returns boolean as $$
+declare
+  v_inserted uuid;
+begin
+  insert into public.payments (user_id, provider, provider_payment_id, currency, amount_usd,
+                                pack_id, credits, status, confirmed_at)
+    values (p_user_id, 'paypal', p_payment_id, 'USD', p_amount_usd, p_pack_id, p_credits,
+            'confirmed', now())
+    on conflict (provider, provider_payment_id) do nothing
+    returning id into v_inserted;
+  if v_inserted is not null then
+    update public.profiles set paid_credits = paid_credits + p_credits where id = p_user_id;
+    return true;
+  end if;
+  return false; -- já tinha sido processado antes (replay do webhook)
+end;
+$$ language plpgsql security definer set search_path = public;
 
 -- Confirmação de pagamento (só o operador chama isto, a partir do painel /admin).
 -- Atómico: marca o pagamento como confirmado e dá 1 crédito, ou não faz nada se já

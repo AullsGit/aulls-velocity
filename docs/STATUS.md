@@ -253,3 +253,71 @@ processamento".
 - Testar o fluxo completo uma vez com Supabase real: criar conta, gerar a edição grátis,
   tentar gerar uma 2ª (deve bloquear), declarar um pagamento fictício, confirmar em `/admin`,
   confirmar que desbloqueia.
+
+## Atualização — AwlsVelocity: sem plano grátis, PayPal automático (2026-09-26)
+
+Pedido do utilizador (pasted_content extenso, 25 secções): rename para "AwlsVelocity";
+investigar e otimizar a velocidade real do pipeline; remover o plano grátis — só $0.50 por
+geração, nada mais; pagamento online automático e seguro (frontend nunca decide preço nem
+credita nada — só um webhook verificado no backend); preservar tudo o que já funciona.
+
+- **Rename** para AwlsVelocity em toda a UI do Studio (título, navbar, login/registo, conta,
+  admin, explorar). Não tocado: nome do repo GitHub, nome do serviço/domínio no Render.
+- **Velocidade — profiling real primeiro** (`cProfile` + timing por etapa, sem cache, com a
+  config do Docker): render = 82% do tempo total; dentro do render, `decode_window()`
+  (chamadas ffmpeg por plano, não o compositing OpenCV) = 75%. Duas otimizações medidas,
+  sem perda de qualidade (mesma fidelidade final 0.8253 antes/depois no mesmo vídeo):
+  1. `pipeline.py`: a 2ª renderização do "protetor de fidelidade" só acontece se a 1ª ainda
+     não atingir fidelidade ≥ 0.85 (`GOOD_ENOUGH_FIDELITY`) — antes disparava sempre que
+     havia qualquer ajuste, pagando ~metade do tempo total por um ganho por vezes marginal.
+  2. `pipeline.py`: análise dos clips paralelizada (`ThreadPoolExecutor`) quando não há
+     segmentador partilhado — o custo é ffmpeg em subprocesso (liberta o GIL), por isso
+     paraleliza de verdade. Ganho medido: 203s → 180s no vídeo de teste (a otimização #1
+     não disparou nesse caso em concreto — só poupa quando a 1ª passagem já é boa).
+  - **Não feito** (maior esforço, adiado): cache dos frames descodificados entre a 1ª e a
+    2ª passagem eliminaria quase os ~94s da 2ª por completo, mas guardar todos os planos
+    descodificados em RAM pode passar de 1-2GB num vídeo de 30s — arriscado numa instância
+    Render pequena. Precisa de ser em disco, não em RAM, para ser seguro. Próximo passo de
+    maior impacto, não implementado ainda.
+- **Sem plano grátis**: removida a lógica de "1ª edição grátis" (`free_edits_used` deixou de
+  ser lida por `can_edit`/`consume_edit`, coluna mantida na tabela por compatibilidade, não
+  apagada — "não destruir o schema existente"). Só há edição com créditos pagos.
+- **Gateway de pagamento — decisão baseada em números verificados, não inventados**:
+  - Stripe: **eliminado**. Moçambique não está na lista de países suportados para conta de
+    vendedor (confirmado via pesquisa, não assumido).
+  - PayPal: viável, mas a taxa PADRÃO (2,99% + $0,49) sozinha já excede $0,50 — cobrar $0,50
+    isolado dá prejuízo. A taxa "Micropayments" (~4,99%+$0,09, ~77% margem) resolveria, mas
+    exige pedir aprovação direta ao PayPal — não é algo que se resolva por código.
+  - **Decisão** (pedida ao utilizador via AskUserQuestion, resposta: "o mais baixo possível
+    aceitável, sem complicações"): carteira de créditos por PACOTE em vez de $0,50 isolado.
+    O preço ao cliente continua $0,50/geração, mas a cobrança PayPal é maior (4 gerações por
+    $2, 10 por $5) — dilui a taxa fixa para ~72-87% de margem já com a taxa padrão, sem
+    esperar por ninguém. Ajustável em `studio/payments_paypal.py::PACKS`.
+- **`studio/payments_paypal.py`** (novo) — Orders API v2 (sandbox/live por `PAYPAL_ENV`).
+  `create_order` usa sempre o preço de `PACKS` (nunca um valor vindo do cliente); `custom_id`
+  guarda `"user_id:pack_id"` (única forma de o webhook saber a quem creditar). Arquitetura
+  exatamente como pedida: frontend cria order → cliente aprova → backend captura → só o
+  WEBHOOK (assinatura verificada pela própria API do PayPal via
+  `verify_webhook_signature`) concede créditos, nunca a resposta síncrona da captura.
+- **`supabase-schema.sql`**: migração idempotente (`alter table ... add column if not
+  exists`, segura de re-correr) acrescenta `provider`/`provider_payment_id`/`currency`/
+  `amount_usd`/`pack_id`/`credits` a `payments`; índice único em
+  `(provider, provider_payment_id)` — protege contra o PayPal reenviar o mesmo webhook e
+  creditar 2x. Nova função `grant_paypal_credits` (idempotente, chamada só pelo webhook).
+- Testado com mocks (sem credenciais PayPal reais ainda): `/api/me` só mostra a secção PayPal
+  quando configurado; `create-order` rejeita pack_id inválido; `capture` não credita nada por
+  si só; `webhook` rejeita assinatura inválida (400), credita corretamente num evento válido,
+  ignora eventos irrelevantes sem tocar em créditos. `pytest -m "not bench"` continua a passar.
+- `studio/static/conta.html` ganhou os botões PayPal (SDK oficial `paypal.com/sdk/js`,
+  carregado só quando `paypal.enabled`) lado a lado com o fluxo e-Mola (mantido, não quebrado).
+
+### Por fazer (a maior parte do pedido original de 25 secções — priorizado o que era mais
+### urgente/bloqueante primeiro: rename, velocidade real, viabilidade do pagamento)
+- **Só o utilizador consegue**: criar app PayPal Developer (sandbox) e o webhook, testar um
+  pagamento sandbox real — passo a passo em `docs/DEPLOY.md`, secção "Passo 4".
+- Arquitetura de job assíncrono com etapas nomeadas na UI (Uploading/Analyzing/Rendering/...)
+  — hoje já há polling+log, falta a barra de progresso por etapa pedida.
+- Limites explícitos de duração/resolução na interface (upload size/clips já existiam).
+- Redesenho visual completo (landing page, dashboard, mobile) — não feito nesta fase.
+- Sanitização de mensagens de erro técnicas para o utilizador final.
+- Cache de frames entre passagens de render (maior otimização de velocidade ainda por fazer).

@@ -52,8 +52,8 @@ git push -u origin main
 
 ## Passo 3 — Contas, pagamentos e galeria: ligar o Supabase (só tu podes fazer isto)
 
-Desde que o site passou a ter login, 1ª edição grátis + pagamento para as seguintes, e
-publicação opcional de vídeos, isto precisa de uma base de dados que sobreviva a reinícios
+Desde que o site passou a ter login, créditos pagos (sem plano grátis) e publicação opcional
+de vídeos, isto precisa de uma base de dados que sobreviva a reinícios
 (o Render grátis não tem disco persistente). Usamos o [Supabase](https://supabase.com)
 (Postgres + Auth + Storage, tudo grátis no plano Free).
 
@@ -78,13 +78,67 @@ publicação opcional de vídeos, isto precisa de uma base de dados que sobreviv
 limite de edições) — as contas/pagamentos só ficam ativos quando as duas variáveis
 `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` existirem.
 
-### Como funciona o pagamento (importante)
+### e-Mola (Moçambique, manual)
 
 Não há nenhuma ligação automática ao e-Mola — não é possível para uma conta pessoal, e não
 seria seguro pedir o PIN de ninguém. O fluxo é: o cliente transfere pelo **seu próprio**
 telemóvel para 868116236, depois declara na app quanto pagou (fica "a aguardar confirmação"),
-e só desbloqueia a próxima edição quando TU confirmares manualmente em `/admin` — depois de
-veres o dinheiro a entrar na tua conta e-Mola. Nunca pedimos PIN nem qualquer dado da conta.
+e só desbloqueia créditos quando TU confirmares manualmente em `/admin` — depois de veres o
+dinheiro a entrar na tua conta e-Mola. Nunca pedimos PIN nem qualquer dado da conta.
+
+## Passo 4 — PayPal (pagamento automático internacional, $0.50/geração)
+
+**Antes de configurar isto, lê a secção "Porque não $0.50 isolado" em baixo** — é importante
+perceberes porque o preço aparece ao cliente como $0.50/geração mas a cobrança real ao PayPal
+é por pacote (ex.: $2 = 4 gerações).
+
+1. Cria conta em https://developer.paypal.com com a tua conta PayPal normal (ou cria uma
+   PayPal Business primeiro em paypal.com — Moçambique está disponível).
+2. "Apps & Credentials" → "Create App" → escolhe um nome (ex.: "AwlsVelocity") → tipo "Merchant".
+   Começa em modo **Sandbox** (ambiente de testes, dinheiro fictício) antes de ires para Live.
+3. Copia o **Client ID** e o **Secret** da app criada.
+4. Ainda no developer.paypal.com, vai a "Webhooks" (dentro da tua app, ou em Account Settings
+   → Notifications → Webhooks) → "Add Webhook":
+   - URL: `https://aulls-velocity-studio.onrender.com/api/payments/paypal/webhook`
+   - Eventos a subscrever: `PAYMENT.CAPTURE.COMPLETED` (só este é necessário)
+   - Depois de criado, copia o **Webhook ID**.
+5. No dashboard do Render → "Environment" → adiciona:
+   - `PAYPAL_ENV` = `sandbox` (muda para `live` só quando estiveres pronto a receber dinheiro real)
+   - `PAYPAL_CLIENT_ID` = o Client ID
+   - `PAYPAL_CLIENT_SECRET` = o Secret
+   - `PAYPAL_WEBHOOK_ID` = o Webhook ID
+6. Testa em Sandbox primeiro (ver "Como testar um pagamento" abaixo) antes de trocares para
+   `PAYPAL_ENV=live` com credenciais de uma app Live (repete os passos 2-4 em modo Live).
+
+**Sem estas variáveis, a secção de compra de créditos por PayPal simplesmente não aparece**
+na página `/conta` — o e-Mola continua a funcionar normalmente.
+
+### Porque não $0.50 isolado (leitura importante antes de ativares)
+
+Verifiquei (não assumi) as taxas do PayPal: a taxa padrão é **2.99% + $0.49 por transação**.
+Numa cobrança de $0.50, a taxa sozinha já dá **$0.505 — mais do que o preço**. Cobrar $0.50
+isolado por PayPal dá prejuízo em todas as transações.
+
+A opção certa seria a taxa "Micropayments" do PayPal (~4.99% + $0.09, ~77% de margem em $0.50),
+mas isso exige **pedires aprovação diretamente ao PayPal** — não é automático nem algo que eu
+consiga fazer por código.
+
+Por isso, o preço ao cliente continua $0.50/geração, mas a compra é por **pacote** (4 gerações
+por $2, ou 10 por $5) — a mesma cobrança PayPal, só que maior, o que dilui a taxa fixa para uma
+margem saudável (~72-87%) já com a taxa PADRÃO, sem esperar aprovação nenhuma. Ajustável em
+`studio/payments_paypal.py::PACKS` a qualquer momento — inclusive para voltar a $0.50 isolado
+se um dia conseguires a aprovação de Micropayments.
+
+### Como testar um pagamento (modo Sandbox)
+
+1. Com `PAYPAL_ENV=sandbox`, abre developer.paypal.com → "Sandbox" → "Accounts" — o PayPal já
+   te dá uma conta de comprador e uma de vendedor fictícias (com login/password de teste).
+2. Na app, vai a `/conta`, escolhe um pacote, clica no botão PayPal, e usa o email/password da
+   conta de comprador sandbox para "pagar" (dinheiro fictício, não é cobrado nada a sério).
+3. Confirma que `paid_credits` aumenta em `/api/me` (a página `/conta` atualiza sozinha) e que
+   aparece uma linha nova na tabela `payments` do Supabase com `provider='paypal'`,
+   `status='confirmed'`.
+4. Só depois disto funcionar em Sandbox é que faz sentido criar credenciais Live.
 
 ## Limitações honestas do plano gratuito (importante saberes)
 

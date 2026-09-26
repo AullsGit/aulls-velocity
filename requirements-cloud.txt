@@ -17,3 +17,4 @@ librosa==0.11.0
 easyocr==1.7.2
 spandrel==0.4.2
 supabase==2.31.0
+requests==2.34.2

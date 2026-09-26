@@ -29,11 +29,14 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from studio import auth, db  # noqa: E402
+from studio import payments_paypal as pp  # noqa: E402
 from velocity.detector.velocity_detector import detect  # noqa: E402
 from velocity.pipeline import PROFILES, MakeParams, run_make  # noqa: E402
 from velocity.reference.analyzer import analyze_reference  # noqa: E402
 
-FREE_EDITS = 1
+# Sem plano grátis: cada geração consome 1 crédito pago (PayPal, automático, ou e-Mola,
+# confirmado manualmente pelo operador). Ver studio/payments_paypal.py para o porquê dos
+# pacotes em vez de $0.50 isolado.
 PRICES_MT = {"fast": 150, "standard": 200, "hd": 300}
 # Número para onde os clientes transferem (e-Mola). O site nunca pede PIN nem qualquer
 # dado da conta — só mostra este número e depois deixa o cliente DECLARAR quanto pagou;
@@ -225,7 +228,7 @@ async def create_job(
             return JSONResponse({"error": "inicia sessão para gerar um vídeo"}, status_code=401)
         if not db.can_edit(user.id):
             return JSONResponse(
-                {"error": "já usaste a tua edição grátis — confirma um pagamento para continuar",
+                {"error": "precisas de créditos para gerar — cada geração custa $0.50 (comprado em pacotes)",
                  "payment_required": True},
                 status_code=402,
             )
@@ -395,11 +398,11 @@ def me(user=Depends(auth.get_current_user)):
         "logged_in": True,
         "email": user.email,
         "is_owner": bool(auth.OWNER_EMAIL) and (user.email or "").lower() == auth.OWNER_EMAIL.lower(),
-        "free_edits_used": profile.get("free_edits_used", 0),
         "paid_credits": profile.get("paid_credits", 0),
         "can_edit": db.can_edit(user.id),
         "emola_number": EMOLA_NUMBER,
         "prices_mt": PRICES_MT,
+        "paypal": {"enabled": pp.enabled(), "client_id": pp.client_id(), "packs": pp.PACKS} if pp.enabled() else {"enabled": False},
     }
 
 
@@ -438,6 +441,58 @@ def admin_payments(user=Depends(auth.require_owner)):
 def admin_confirm_payment(payment_id: str, user=Depends(auth.require_owner)):
     db.confirm_payment(payment_id)
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# PayPal — pagamento automático internacional. O frontend NUNCA decide o preço nem
+# credita nada: cria-se a order com o preço de PACKS (backend), o cliente aprova no
+# PayPal, e só o WEBHOOK (assinatura verificada pela própria API do PayPal) é que
+# concede créditos — nunca a resposta síncrona da captura. Ver studio/payments_paypal.py.
+# ---------------------------------------------------------------------------
+
+@app.post("/api/payments/paypal/create-order")
+async def paypal_create_order(request: Request, user=Depends(auth.require_user)):
+    if not pp.enabled():
+        return JSONResponse({"error": "pagamento por PayPal indisponível"}, status_code=400)
+    body = await request.json()
+    pack_id = body.get("pack_id")
+    if pack_id not in pp.PACKS:
+        return JSONResponse({"error": "pacote inválido"}, status_code=400)
+    try:
+        order = pp.create_order(pack_id, user.id)
+    except Exception as e:
+        return JSONResponse({"error": f"não foi possível criar o pagamento: {e}"}, status_code=502)
+    return {"order_id": order["id"]}
+
+
+@app.post("/api/payments/paypal/capture/{order_id}")
+def paypal_capture_order(order_id: str, user=Depends(auth.require_user)):
+    """Finaliza a cobrança no PayPal. Não credita nada aqui — isso só acontece quando o
+    webhook (fonte da verdade) confirmar. O frontend faz polling a /api/me entretanto."""
+    if not pp.enabled():
+        return JSONResponse({"error": "pagamento por PayPal indisponível"}, status_code=400)
+    try:
+        cap = pp.capture_order(order_id)
+    except Exception as e:
+        return JSONResponse({"error": f"pagamento não confirmado: {e}"}, status_code=502)
+    return {"status": cap.get("status", "UNKNOWN")}
+
+
+@app.post("/api/payments/paypal/webhook")
+async def paypal_webhook(request: Request):
+    body = await request.json()
+    if not pp.verify_webhook_signature(dict(request.headers), body):
+        return JSONResponse({"error": "assinatura inválida"}, status_code=400)
+    if body.get("event_type") != "PAYMENT.CAPTURE.COMPLETED":
+        return {"ok": True, "ignored": body.get("event_type")}
+    resource = body.get("resource", {})
+    user_id, _, pack_id = (resource.get("custom_id") or "").partition(":")
+    pack = pp.PACKS.get(pack_id)
+    if not user_id or not pack:
+        return JSONResponse({"error": "custom_id inválido"}, status_code=400)
+    amount_usd = float(resource.get("amount", {}).get("value", pack["usd"]))
+    granted = db.grant_paypal_credits(user_id, resource["id"], amount_usd, pack_id, pack["credits"])
+    return {"ok": True, "granted": granted}
 
 
 # ---------------------------------------------------------------------------

@@ -107,3 +107,13 @@ def list_pending_payments() -> list[dict]:
 
 def confirm_payment(payment_id: str) -> None:
     get_client().rpc("confirm_payment", {"p_payment_id": payment_id}).execute()
+
+
+def grant_paypal_credits(user_id: str, payment_id: str, amount_usd: float, pack_id: str, credits: int) -> bool:
+    """Idempotente (ver função Postgres `grant_paypal_credits`): reenvios do mesmo webhook do
+    PayPal nunca creditam duas vezes, porque `provider_payment_id` é único por captura."""
+    r = get_client().rpc("grant_paypal_credits", {
+        "p_user_id": user_id, "p_payment_id": payment_id, "p_amount_usd": amount_usd,
+        "p_pack_id": pack_id, "p_credits": credits,
+    }).execute()
+    return bool(r.data)

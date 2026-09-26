@@ -34,10 +34,20 @@
     <div id="status-badges"></div>
   </div>
 
+  <div class="card" id="paypal-card" style="display:none">
+    <h2 style="font-size:1.15rem">Comprar créditos — $0.50 por geração</h2>
+    <p class="hint">Pago com cartão via PayPal, confirmado automaticamente (não é preciso esperar por ninguém).
+      Cada geração consome 1 crédito.</p>
+    <div class="plans" id="pp-packs"></div>
+    <div id="paypal-buttons" style="margin-top:14px"></div>
+    <p class="err-box" id="paypal-status"></p>
+  </div>
+
   <div class="card" id="pay-card">
-    <h2 style="font-size:1.15rem">Pagar a próxima edição</h2>
+    <h2 style="font-size:1.15rem">Alternativa em Moçambique — e‑Mola</h2>
     <p class="hint">Sem verificação automática — nunca pedimos o PIN nem qualquer dado da tua conta e‑Mola.
-      Fazes a transferência sempre a partir da tua própria aplicação e‑Mola (ou USSD <b>*898#</b>), nunca dentro deste site.</p>
+      Fazes a transferência sempre a partir da tua própria aplicação e‑Mola (ou USSD <b>*898#</b>), nunca dentro deste site.
+      Confirmação manual, pode demorar um pouco mais que o PayPal.</p>
 
     <div class="plans">
       <div class="p"><b>150 MT</b>Rápido</div>
@@ -90,9 +100,52 @@ async function loadMe() {
   $("#emola-number").textContent = j.emola_number;
   const canEdit = j.can_edit;
   $("#status-badges").innerHTML =
-    `<span class="badge ${j.free_edits_used < 1 ? "ok" : "cyan"}">edição grátis: ${j.free_edits_used < 1 ? "disponível" : "já usada"}</span> ` +
-    `<span class="badge ${j.paid_credits > 0 ? "ok" : "warn"}">créditos pagos: ${j.paid_credits}</span> ` +
-    `<span class="badge ${canEdit ? "ok" : "err"}">${canEdit ? "podes gerar um vídeo" : "precisas de pagar para continuar"}</span>`;
+    `<span class="badge cyan">$0.50 por geração</span> ` +
+    `<span class="badge ${j.paid_credits > 0 ? "ok" : "warn"}">créditos: ${j.paid_credits}</span> ` +
+    `<span class="badge ${canEdit ? "ok" : "err"}">${canEdit ? "podes gerar um vídeo" : "precisas de comprar créditos"}</span>`;
+  if (j.paypal && j.paypal.enabled) setupPaypal(j.paypal);
+}
+
+function setupPaypal(pp) {
+  $("#paypal-card").style.display = "block";
+  $("#pp-packs").innerHTML = Object.entries(pp.packs).map(([id, p]) =>
+    `<div class="p" data-pack="${id}" style="cursor:pointer"><b>$${p.usd.toFixed(2)}</b>${p.credits} gerações</div>`).join("");
+  let selectedPack = Object.keys(pp.packs)[0];
+  $("#pp-packs").querySelectorAll(".p").forEach(el => el.addEventListener("click", () => {
+    $("#pp-packs").querySelectorAll(".p").forEach(x => x.style.borderColor = "var(--border)");
+    el.style.borderColor = "var(--cyan)";
+    selectedPack = el.dataset.pack;
+  }));
+  $("#pp-packs").querySelector(".p").style.borderColor = "var(--cyan)";
+
+  const script = document.createElement("script");
+  script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(pp.client_id)}&currency=USD`;
+  script.onload = () => {
+    window.paypal.Buttons({
+      createOrder: async () => {
+        const r = await fetch("/api/payments/paypal/create-order", {
+          method: "POST", headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({pack_id: selectedPack}),
+        });
+        const j = await r.json();
+        if (j.error) { $("#paypal-status").textContent = j.error; throw new Error(j.error); }
+        return j.order_id;
+      },
+      onApprove: async (data) => {
+        $("#paypal-status").style.color = "var(--muted)";
+        $("#paypal-status").textContent = "a confirmar pagamento…";
+        await fetch(`/api/payments/paypal/capture/${data.orderID}`, {method: "POST"});
+        for (let i = 0; i < 10; i++) {
+          await new Promise(r => setTimeout(r, 1500));
+          await loadMe();
+          if (me.can_edit) { $("#paypal-status").style.color = "var(--ok)"; $("#paypal-status").textContent = "Pagamento confirmado — créditos adicionados."; return; }
+        }
+        $("#paypal-status").textContent = "Pagamento em processamento — atualiza a página em instantes.";
+      },
+      onError: () => { $("#paypal-status").textContent = "Pagamento falhou. O teu vídeo não foi gerado."; },
+    }).render("#paypal-buttons");
+  };
+  document.head.appendChild(script);
 }
 
 async function loadPayments() {

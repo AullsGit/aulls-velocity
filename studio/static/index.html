@@ -146,12 +146,10 @@ async function loadMe() {
   $("#nav-conta").classList.remove("hidden");
   $("#nav-logout").classList.remove("hidden");
   if (me.can_edit) {
-    $("#status-line").innerHTML = me.free_edits_used < 1
-      ? `<span class="badge ok">a tua edição grátis está disponível</span>`
-      : `<span class="badge ok">créditos pagos: ${me.paid_credits}</span>`;
+    $("#status-line").innerHTML = `<span class="badge ok">créditos: ${me.paid_credits}</span> · $0.50/geração`;
   } else {
-    $("#status-line").innerHTML = `<span class="badge err">já usaste a edição grátis</span> — ` +
-      `<a href="/conta">paga a próxima edição (desde ${me.prices_mt.fast} MT)</a>`;
+    $("#status-line").innerHTML = `<span class="badge err">sem créditos</span> — ` +
+      `<a href="/conta">comprar créditos ($0.50/geração)</a>`;
     $("#btn-generate").disabled = true;
   }
 }

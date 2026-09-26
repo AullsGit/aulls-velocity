@@ -18,6 +18,16 @@ services:
         sync: false
       - key: VELOCITY_OWNER_EMAIL
         sync: false
+      # PayPal (pagamento automático internacional) — preencher no dashboard do Render
+      # depois de criar a app em developer.paypal.com. Ver docs/DEPLOY.md.
+      - key: PAYPAL_ENV
+        value: "sandbox"
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
       # Free tier = 512MB RAM / 0.1 CPU: limites mais apertados que os defaults do código,
       # para reduzir o risco de um pedido grande ou vários em fila esgotarem a memória.
       - key: VELOCITY_MAX_UPLOAD_MB
