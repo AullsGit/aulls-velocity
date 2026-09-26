@@ -53,7 +53,7 @@ RATE_LIMIT_JOBS = int(os.environ.get("VELOCITY_RATE_LIMIT_JOBS", "5"))
 RATE_LIMIT_WINDOW_S = int(os.environ.get("VELOCITY_RATE_LIMIT_WINDOW_S", "3600"))
 START_TIME = time.time()
 
-app = FastAPI(title="Velocity Studio")
+app = FastAPI(title="AwlsVelocity")
 
 _rate_lock = threading.Lock()
 _rate_hits: dict[str, deque] = defaultdict(deque)

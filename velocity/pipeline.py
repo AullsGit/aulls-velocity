@@ -14,6 +14,7 @@ from __future__ import annotations
 import math
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from velocity.detector.velocity_detector import Detection, detect
@@ -26,6 +27,11 @@ from velocity.matching.plan import build_timeline
 from velocity.media.analyzer import analyze_clip
 from velocity.reference.analyzer import analyze_reference
 from velocity.render.compositor import render
+
+# Abaixo deste valor de fidelidade (medida por `evaluate.metrics.compare`), vale a pena pagar
+# uma 2ª renderização completa para tentar melhorar; acima, o ganho é tipicamente pequeno e não
+# compensa o custo (uma re-renderização demora tanto como a 1ª — ver profiling em docs/STATUS.md).
+GOOD_ENOUGH_FIDELITY = 0.85
 
 PROFILES = {
     "fast": {"size": (540, 960), "crf": 21, "fx_iters": 0, "sr": False, "preset": "veryfast"},
@@ -111,7 +117,15 @@ def run_make(p: MakeParams, log=print) -> MakeResult:
         from velocity.media.segment import PersonSegmenter
         locator = PersonSegmenter()
         tlog(f"segmentador de pessoas em {locator.device} (primeira análise de cada clip fica em cache)")
-    clips = [analyze_clip(c, locator) for c in p.clips]
+    if locator is None and len(p.clips) > 1:
+        # Cada clip é decodificado/analisado de forma independente e o custo é dominado por
+        # chamadas ao ffmpeg (processo à parte, liberta o GIL) — paralelizar aqui dá um ganho
+        # real, medido, sem tocar em qualidade. Só quando NÃO há segmentador partilhado
+        # (subject_enhance), cuja segurança em threads não está verificada.
+        with ThreadPoolExecutor(max_workers=min(len(p.clips), os.cpu_count() or 4)) as ex:
+            clips = list(ex.map(lambda c: analyze_clip(c, locator), p.clips))
+    else:
+        clips = [analyze_clip(c, locator) for c in p.clips]
     tlog(f"material: {len(clips)} clips, {sum(c.duration_s for c in clips):.1f}s no total")
     if sum(c.duration_s for c in clips) < 0.6 * dna_ext.duration_s:
         tlog(f"  [aviso] material do utilizador ({sum(c.duration_s for c in clips):.1f}s) é escasso para {dna_ext.duration_s:.1f}s de edição — espera-se reutilização visível de trechos.")
@@ -133,7 +147,11 @@ def run_make(p: MakeParams, log=print) -> MakeResult:
 
     out_dna = analyze_reference(p.out, with_audio=bool(tl.music_path), with_text=False)
     fxrep = compare_effects(dna_ext, out_dna)
-    for it in range(p.fx_iters):
+    pre_fidelity = compare(dna_ext, out_dna)["fidelity"]
+    fx_iters = p.fx_iters if pre_fidelity < GOOD_ENOUGH_FIDELITY else 0
+    if p.fx_iters and not fx_iters:
+        tlog(f"fidelidade já alta ({pre_fidelity:.3f} >= {GOOD_ENOUGH_FIDELITY}) — a saltar a 2ª renderização (~metade do tempo total)")
+    for it in range(fx_iters):
         changes = []
         sug = fxrep["suggested_fx_scale"]
         if sug and not p.no_fx and fxrep["invented_ratio"] < 0.2 and tl.fx_scale * sug <= 1.4:
