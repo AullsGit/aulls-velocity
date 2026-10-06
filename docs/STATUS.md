@@ -321,3 +321,54 @@ credita nada — só um webhook verificado no backend); preservar tudo o que já
 - Redesenho visual completo (landing page, dashboard, mobile) — não feito nesta fase.
 - Sanitização de mensagens de erro técnicas para o utilizador final.
 - Cache de frames entre passagens de render (maior otimização de velocidade ainda por fazer).
+
+## Atualização — produto comercial (app v2): RunPod, créditos, editor, PWA (2026-10-06)
+
+Briefing de 33 secções: transformar o motor num produto (web/Android/iOS), processamento em
+GPU sob demanda (RunPod Serverless, escala a zero), créditos, editor leve pós-geração, admin,
+analytics, landing. Feito por fases, cada uma testada antes da seguinte.
+
+**Motor (só o necessário, medido):**
+- Profiling real: render = 75% descodificação ffmpeg por plano. NVDEC (GPU) medido e **mais
+  lento** (107s vs 75s). Causa real: cada janela era descodificada até 1440x2560 com clips de
+  480x864 (ampliar ~9x píxeis sem detalhe novo). Corrigido: decode à resolução nativa + 1
+  ampliação bicúbica no warpAffine (com mapeamento de centros de pixel) + pré-descodificação
+  paralela com orçamento de memória + probe memorizado. Render 103.6s -> 39.1s, PSNR 39.4 dB vs
+  anterior, ~0 px de deslocamento, 21% mais nítido. Suite de round-trip passa.
+- run_make: callback de progresso por etapa, tempos por etapa no relatório, reutiliza a análise
+  da referência (MakeParams.dna), devolve a Timeline; OCR só quando há texto pedido.
+- Timeline.music_volume (editor). velocity/edit/timeline_ops.py: o browser envia um EditDoc
+  simples; o backend reconstrói a timeline reancorando transições/efeitos (8 testes).
+
+**Plataforma:** store (Supabase | memória, mesmo contrato), storage (Supabase | disco, mesmo
+protocolo PUT multipart assinado — confirmado na fonte do storage3), compute (local | RunPod —
+API verificada em docs.runpod.io), JobService (créditos reservados ANTES, reembolso automático,
+idempotência, monitor + webhook, limpeza automática), PaymentService (PayPal: captura
+servidor-a-servidor + webhook, idempotentes, recusa valor ≠ preço do pacote), auth (Supabase |
+memória; Google só se configurado). supabase-schema.sql v3 testado em Postgres real (PGlite),
+incluindo atualização a partir da v2; fecha o buraco das funções security definer executáveis
+pelo papel anon.
+
+**App:** SPA sem build (ES modules), PWA (manifest, service worker, ícones), EN por defeito +
+PT. Home, criar (4 passos com upload direto/progresso/galeria/câmara), análise da IA visível,
+geração com etapas reais e cancelamento com reembolso, resultado (editar/descarregar/partilhar
+ficheiro nativo/gerar de novo), projetos, editor (dividir, cortar, reordenar por arrastar/toque
+longo, velocidade, transição, zoom/flip, substituir, duplicar, apagar, texto, música, filtros,
+desfazer/refazer, voltar à versão da IA, atalhos), perfil/créditos, admin (negócio + custo +
+filas + falhas + preço/pacotes/promo), landing, onboarding de 3 ecrãs, página de partilha com
+Open Graph.
+
+**Testes:** 49 pytest (motor + editor + 22 API + 1 ponta-a-ponta com o motor real) + 41
+verificações SQL. Testado no browser: registo -> onboarding -> upload -> análise real -> geração
+real (31s de vídeo em 33s, perfil rápido) -> editor (apagar/dividir/desfazer/texto) ->
+re-export com texto queimado -> créditos/admin; layout mobile e desktop medidos no DOM.
+Handler RunPod testado com o SDK oficial (modo local): geração completa, 12 atualizações de
+progresso, ok=True.
+
+### Por fazer / limitações
+- RunPod real, Supabase migração, PayPal e Google dependem de contas/ações do utilizador
+  (docs/DEPLOY.md, passos marcados "VOCÊ PRECISA FAZER ISTO").
+- Pré-visualização do editor é "rápida" (sem efeitos); o final só ao exportar.
+- Rotação, pista de áudio dos clips do utilizador e transições por máscara não existem no motor.
+- Landing page só em inglês (a app é EN/PT).
+- Lojas Android/iOS: PWA pronta; publicação exige contas de programador.

@@ -25,8 +25,12 @@ def get_store():
             from studio.store.supabase import SupabaseStore
             _store = SupabaseStore()
         else:
+            import os
             from studio.store.memory import MemoryStore
-            _store = MemoryStore()
+            path = None
+            if os.environ.get("DEV_PERSIST") == "1":
+                path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "dev_db.json")
+            _store = MemoryStore(path)
     return _store
 
 

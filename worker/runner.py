@@ -220,7 +220,7 @@ def _analyze(payload: dict, tmp: str, progress) -> dict:
     t = time.time()
     ref, _, _, _ = _fetch_inputs(payload, tmp, progress, with_sources=False)
     progress("analyzing_reference", 0.3)
-    dna = analyze_reference(ref)
+    dna = analyze_reference(ref, with_text=False)  # o OCR corre na geração, só se houver texto pedido
     det = detect(dna)
     progress("finalizing", 0.95)
     return {

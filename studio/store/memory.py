@@ -23,7 +23,9 @@ def _parse(ts: str | None) -> datetime | None:
 
 
 class MemoryStore:
-    def __init__(self):
+    _FIELDS = ("profiles", "projects", "jobs", "ledger", "payments", "config", "packs", "promos", "events")
+
+    def __init__(self, persist_path: str | None = None):
         self._lock = threading.RLock()
         self.profiles: dict[str, dict] = {}
         self.projects: dict[str, dict] = {}
@@ -35,6 +37,43 @@ class MemoryStore:
         self.promos: dict[str, dict] = {}
         self.redemptions: set[tuple[str, str]] = set()
         self.events: list[dict] = []
+        self._persist = persist_path
+        if persist_path:
+            self._load()
+            threading.Thread(target=self._autosave, daemon=True).start()
+
+    # Persistência opcional (só desenvolvimento / operador local): um snapshot JSON a cada
+    # 3 s, para reiniciar o servidor não apagar contas e projetos. Produção usa o Supabase.
+    def _load(self) -> None:
+        import json
+        import os
+        if not os.path.isfile(self._persist):
+            return
+        with open(self._persist, encoding="utf-8") as fh:
+            d = json.load(fh)
+        for k in self._FIELDS:
+            if k in d:
+                setattr(self, k, d[k])
+        self.redemptions = {tuple(x) for x in d.get("redemptions", [])}
+
+    def _autosave(self) -> None:
+        import json
+        import os
+        import time
+        last = None
+        while True:
+            time.sleep(3)
+            with self._lock:
+                d = {k: getattr(self, k) for k in self._FIELDS}
+                d["redemptions"] = [list(x) for x in self.redemptions]
+                blob = json.dumps(d, default=str)
+            if blob != last:
+                os.makedirs(os.path.dirname(self._persist), exist_ok=True)
+                tmp = self._persist + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as fh:
+                    fh.write(blob)
+                os.replace(tmp, self._persist)
+                last = blob
 
     # ------------------------------------------------------------------ perfis
     def ensure_profile(self, user_id: str, email: str | None) -> dict:

@@ -94,6 +94,9 @@ async def _guard(request: Request, call_next):
         response.headers.setdefault("Content-Security-Policy", _CSP)
     if path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "no-store")
+    elif path.startswith("/static/"):
+        # revalida sempre (304 barato via ETag): um deploy novo chega logo a toda a gente
+        response.headers["Cache-Control"] = "no-cache"
     return response
 
 
@@ -116,7 +119,18 @@ def _startup():
         log.warning("Sem Supabase: dados em MEMÓRIA (perdem-se ao reiniciar) e ficheiros em disco. Só para desenvolvimento.")
     if config.COMPUTE_PROVIDER == "local":
         log.warning("COMPUTE_PROVIDER=local: os vídeos são gerados na CPU deste servidor.")
-    jobs().start_monitor()
+        try:
+            import velocity.pipeline  # noqa: F401
+        except ImportError as e:
+            app.state.maintenance = "engine_missing"
+            log.critical("COMPUTE_PROVIDER=local mas o motor de vídeo não está instalado nesta imagem (%s). "
+                         "Usa o Dockerfile completo, ou configura o RunPod.", e)
+            return
+    try:
+        jobs().start_monitor()
+    except Exception as e:  # ex.: RUNPOD_API_KEY em falta — falha clara, sem derrubar o site
+        app.state.maintenance = "compute_config"
+        log.critical("Fornecedor de computação mal configurado: %s", e)
 
 
 @app.get("/health")

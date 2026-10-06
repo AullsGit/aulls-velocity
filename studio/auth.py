@@ -45,11 +45,44 @@ class AuthFailed(Exception):
 
 
 class MemoryAuth:
-    def __init__(self):
+    def __init__(self, persist_path: str | None = None):
         self._lock = threading.Lock()
         self._users: dict[str, dict] = {}
         self._access: dict[str, tuple[str, float]] = {}
         self._refresh: dict[str, str] = {}
+        self._persist = persist_path
+        if persist_path:
+            self._load()
+            threading.Thread(target=self._autosave, daemon=True).start()
+
+    # só desenvolvimento/operador local (DEV_PERSIST=1): sessões e contas sobrevivem a reinícios
+    def _load(self) -> None:
+        import os
+        if not os.path.isfile(self._persist):
+            return
+        with open(self._persist, encoding="utf-8") as fh:
+            d = json.load(fh)
+        self._users = {k: {**u, "salt": base64.b64decode(u["salt"]), "hash": base64.b64decode(u["hash"])}
+                       for k, u in d.get("users", {}).items()}
+        self._access = {k: tuple(v) for k, v in d.get("access", {}).items()}
+        self._refresh = d.get("refresh", {})
+
+    def _autosave(self) -> None:
+        import os
+        last = None
+        while True:
+            time.sleep(3)
+            with self._lock:
+                blob = json.dumps({
+                    "users": {k: {**u, "salt": base64.b64encode(u["salt"]).decode(), "hash": base64.b64encode(u["hash"]).decode()}
+                              for k, u in self._users.items()},
+                    "access": self._access, "refresh": self._refresh})
+            if blob != last:
+                os.makedirs(os.path.dirname(self._persist), exist_ok=True)
+                with open(self._persist + ".tmp", "w", encoding="utf-8") as fh:
+                    fh.write(blob)
+                os.replace(self._persist + ".tmp", self._persist)
+                last = blob
 
     @staticmethod
     def _hash(pw: str, salt: bytes) -> bytes:
@@ -166,7 +199,14 @@ _auth = None
 def get_auth():
     global _auth
     if _auth is None:
-        _auth = SupabaseAuth() if config.USE_SUPABASE else MemoryAuth()
+        if config.USE_SUPABASE:
+            _auth = SupabaseAuth()
+        else:
+            import os
+            path = None
+            if os.environ.get("DEV_PERSIST") == "1":
+                path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "dev_auth.json")
+            _auth = MemoryAuth(path)
     return _auth
 
 

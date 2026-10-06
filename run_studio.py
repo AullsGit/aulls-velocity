@@ -1,9 +1,11 @@
-"""Arranca o Velocity Studio (interface web local) e abre o browser automaticamente.
+"""Arranca o AwlsVelocity localmente (modo desenvolvimento / operador) e abre o browser.
+
+Sem SUPABASE_URL definido: contas e projetos ficam em memória (perdem-se ao fechar), os
+ficheiros em studio/data/, e os vídeos são gerados nesta máquina. Cada conta nova recebe
+créditos de teste (DEV_SIGNUP_CREDITS) para se conseguir percorrer o fluxo completo.
 
 Uso:
     venv\\Scripts\\python.exe run_studio.py
-Depois abre (ou mantém aberto) http://127.0.0.1:8811 no browser.
-Para parar: fecha esta janela do terminal ou Ctrl+C.
 """
 import os
 import sys
@@ -15,15 +17,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 HOST, PORT = "127.0.0.1", 8811
 
-
-def _open_browser():
-    time.sleep(1.2)
-    webbrowser.open(f"http://{HOST}:{PORT}")
-
-
 if __name__ == "__main__":
+    os.environ.setdefault("DEV_SIGNUP_CREDITS", "50")
+    os.environ.setdefault("VELOCITY_NO_TEXT", "1")
+    os.environ.setdefault("DEV_PERSIST", "1")  # contas e projetos sobrevivem a reinícios (studio/data/)
     import uvicorn
 
-    threading.Thread(target=_open_browser, daemon=True).start()
-    print(f"Velocity Studio em http://{HOST}:{PORT}  (Ctrl+C para parar)")
-    uvicorn.run("studio.server:app", host=HOST, port=PORT, log_level="warning")
+    threading.Thread(target=lambda: (time.sleep(1.5), webbrowser.open(f"http://{HOST}:{PORT}")), daemon=True).start()
+    print(f"AwlsVelocity em http://{HOST}:{PORT}  (Ctrl+C para parar)")
+    uvicorn.run("studio.server:app", host=HOST, port=PORT, log_level="info")

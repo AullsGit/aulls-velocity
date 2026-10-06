@@ -117,11 +117,16 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
     p = _resolve(p)
 
     stage("analyzing_reference", 0.05)
+    # O OCR (onde/quando a referência mostra texto) só serve para sobrepor o texto do
+    # utilizador — sem texto pedido, não vale o tempo (e o custo de GPU) de o correr.
     if p.dna is not None:
         dna = p.dna
         dna.source_path = p.ref
+        if p.text and not dna.text_events:
+            from velocity.reference import text_detect
+            dna.text_events = text_detect.detect_text(p.ref, dna.audio.beats if dna.audio.has_audio else [])
     else:
-        dna = analyze_reference(p.ref)
+        dna = analyze_reference(p.ref, with_text=bool(p.text))
     det = detect(dna)
     lap("reference_analysis")
     tlog(f"referência: {dna.signature.n_shots} planos, {dna.duration_s:.1f}s | Velocity={det.is_velocity} (score {det.score}) {det.reasons[:1]}")
