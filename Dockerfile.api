@@ -1,0 +1,22 @@
+# AwlsVelocity — imagem LEVE para o Render quando o vídeo é gerado no RunPod
+# (COMPUTE_PROVIDER=runpod). Sem PyTorch/OpenCV/ffmpeg: a API só orquestra (contas, uploads
+# assinados, jobs, pagamentos), por isso cabe com folga nos 512 MB do plano grátis e o
+# deploy demora segundos em vez de minutos.
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    COMPUTE_PROVIDER=runpod
+
+WORKDIR /app
+
+COPY requirements-api.txt .
+RUN pip install -r requirements-api.txt
+
+# velocity/ só pelos esquemas e pelo editor (Python puro, sem numpy); o motor não é usado aqui
+COPY velocity/ velocity/
+COPY studio/ studio/
+
+EXPOSE 8000
+CMD ["sh", "-c", "uvicorn studio.server:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

@@ -9,4 +9,5 @@ pythonpath = ["."]
 testpaths = ["tests"]
 markers = [
     "bench: testes que precisam do material em bench/data (mais lentos)",
+    "e2e: fluxo completo da app com o motor real (gera vídeos de verdade, ~1-3 min)",
 ]

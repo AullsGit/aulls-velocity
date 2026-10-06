@@ -1,0 +1,13 @@
+# Worker RunPod (worker/Dockerfile). As versões dos pacotes de vídeo são as mesmas que já
+# compilaram em Linux no deploy do Render (requirements-cloud.txt). torch/torchvision com CUDA
+# instalam-se à parte no Dockerfile.
+pydantic==2.13.5
+numpy==2.4.6
+scipy==1.17.1
+opencv-contrib-python-headless==5.0.0.93
+pillow==12.3.0
+librosa==0.11.0
+easyocr==1.7.2
+spandrel==0.4.2
+requests==2.34.2
+runpod

@@ -67,4 +67,5 @@ class Timeline(BaseModel):
     post_pivot: float = 110.0  # luma-alvo à volta da qual o contraste é escalado
     music_path: str | None = None
     music_offset_s: float = 0.0
+    music_volume: float = 1.0  # 0..2 (editor)
     zoom_gain: float = 1.0  # amplifica o zoom do DNA (1 = fiel)

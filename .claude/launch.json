@@ -2,10 +2,24 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "velocity-studio",
+      "name": "awlsvelocity-dev",
       "runtimeExecutable": "venv/Scripts/python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "studio.server:app", "--host", "127.0.0.1", "--port", "8811"],
-      "port": 8811
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "studio.server:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8811"
+      ],
+      "port": 8811,
+      "env": {
+        "DEV_SIGNUP_CREDITS": "50",
+        "VELOCITY_NO_TEXT": "1",
+        "VELOCITY_OWNER_EMAIL": "owner@awls.test",
+        "DEV_PERSIST": "1"
+      }
     }
   ]
 }

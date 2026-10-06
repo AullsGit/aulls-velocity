@@ -1,7 +1,9 @@
 """ffprobe -> VideoInfo. Único sítio do projeto que fala com o ffprobe."""
 from __future__ import annotations
 
+import functools
 import json
+import os
 import subprocess
 
 from velocity.schemas.media import VideoInfo
@@ -17,6 +19,14 @@ def _frac(s: str | None) -> float:
 
 
 def probe(path: str) -> VideoInfo:
+    # O render chama isto uma vez por plano (~50 por vídeo, ~0.1s cada); a chave inclui
+    # tamanho e mtime para nunca devolver dados de um ficheiro que entretanto mudou.
+    st = os.stat(path)
+    return _probe_cached(path, st.st_size, st.st_mtime_ns)
+
+
+@functools.lru_cache(maxsize=256)
+def _probe_cached(path: str, _size: int, _mtime_ns: int) -> VideoInfo:
     cmd = [
         "ffprobe", "-v", "error", "-show_streams", "-show_format",
         "-of", "json", path,

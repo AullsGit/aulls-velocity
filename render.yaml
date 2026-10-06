@@ -1,5 +1,10 @@
-# Blueprint do Render.com — cria o serviço com um clique em vez de configurar tudo
-# manualmente no dashboard. Ver docs/DEPLOY.md para o passo a passo.
+# Blueprint do Render.com. Ver docs/DEPLOY.md para o passo a passo completo.
+#
+# Duas formas de correr:
+#  1. Sem RunPod (como hoje): dockerfilePath ./Dockerfile e COMPUTE_PROVIDER=local — o vídeo é
+#     gerado na CPU do Render (lento no plano grátis).
+#  2. Com RunPod (recomendado): dockerfilePath ./Dockerfile.api e COMPUTE_PROVIDER=runpod — o
+#     Render só orquestra; o vídeo é gerado na GPU do RunPod.
 services:
   - type: web
     name: aulls-velocity-studio
@@ -8,18 +13,28 @@ services:
     plan: free
     healthCheckPath: /health
     envVars:
-      - key: VELOCITY_NO_TEXT
-        value: "1"
-      # Contas/pagamentos (Supabase) — preencher no dashboard do Render depois do deploy
-      # (Settings → Environment), nunca aqui no ficheiro. Ver docs/DEPLOY.md.
+      # Assina tokens internos (links de ficheiros, webhooks). Gerado pelo Render, nunca no código.
+      - key: APP_SECRET
+        generateValue: true
+      - key: PUBLIC_BASE_URL
+        value: "https://aulls-velocity-studio.onrender.com"
+      # --- Supabase (contas, dados, ficheiros) ---
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
       - key: VELOCITY_OWNER_EMAIL
         sync: false
-      # PayPal (pagamento automático internacional) — preencher no dashboard do Render
-      # depois de criar a app em developer.paypal.com. Ver docs/DEPLOY.md.
+      # --- Processamento de vídeo: local (CPU do Render) ou runpod (GPU sob demanda) ---
+      - key: COMPUTE_PROVIDER
+        value: "local"
+      - key: RUNPOD_API_KEY
+        sync: false
+      - key: RUNPOD_ENDPOINT_ID
+        sync: false
+      - key: VELOCITY_NO_TEXT
+        value: "1"
+      # --- Pagamentos (PayPal) ---
       - key: PAYPAL_ENV
         value: "sandbox"
       - key: PAYPAL_CLIENT_ID
@@ -28,15 +43,15 @@ services:
         sync: false
       - key: PAYPAL_WEBHOOK_ID
         sync: false
-      # Free tier = 512MB RAM / 0.1 CPU: limites mais apertados que os defaults do código,
-      # para reduzir o risco de um pedido grande ou vários em fila esgotarem a memória.
+      # --- Login Google (só depois de o ativar no Supabase; ver docs) ---
+      - key: GOOGLE_AUTH_ENABLED
+        value: "0"
+      # --- Limites (50 MB = máximo por ficheiro no Supabase Free) ---
       - key: VELOCITY_MAX_UPLOAD_MB
-        value: "150"
+        value: "50"
       - key: VELOCITY_MAX_CLIPS
         value: "20"
       - key: VELOCITY_MAX_QUEUE
-        value: "2"
-      - key: VELOCITY_RATE_LIMIT_JOBS
         value: "5"
-      - key: VELOCITY_RATE_LIMIT_WINDOW_S
-        value: "3600"
+      - key: VELOCITY_RATE_LIMIT_JOBS
+        value: "10"

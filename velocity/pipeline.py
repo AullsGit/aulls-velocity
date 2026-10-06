@@ -64,6 +64,7 @@ class MakeParams:
     target_max: float = 31.0
     no_extend: bool = False
     report: str | None = None
+    dna: object | None = None  # EditDNA já analisada (ex.: no passo "análise" da app) — evita repetir a análise
 
 
 @dataclass
@@ -77,6 +78,8 @@ class MakeResult:
     vibe_score: float | None = None
     report: dict = field(default_factory=dict)
     error: str | None = None
+    timeline: object | None = None  # Timeline final (editável depois, sem nova análise)
+    timings: dict = field(default_factory=dict)  # segundos por etapa
 
 
 def _resolve(p: MakeParams) -> MakeParams:
@@ -94,13 +97,38 @@ def _resolve(p: MakeParams) -> MakeParams:
     return p
 
 
-def run_make(p: MakeParams, log=print) -> MakeResult:
+def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
+    """`progress(stage, fraction)` (opcional) recebe as etapas visíveis ao utilizador:
+    analyzing_reference, preparing_edit, rendering, applying_effects, finalizing."""
     t0 = time.time()
     tlog = lambda m: log(f"[{time.time() - t0:5.1f}s] {m}")  # noqa: E731
+    timings: dict[str, float] = {}
+    mark = [time.time()]
+
+    def stage(name: str, frac: float):
+        if progress:
+            progress(name, round(min(max(frac, 0.0), 1.0), 3))
+
+    def lap(name: str):
+        now = time.time()
+        timings[name] = round(timings.get(name, 0.0) + now - mark[0], 2)
+        mark[0] = now
+
     p = _resolve(p)
 
-    dna = analyze_reference(p.ref)
+    stage("analyzing_reference", 0.05)
+    # O OCR (onde/quando a referência mostra texto) só serve para sobrepor o texto do
+    # utilizador — sem texto pedido, não vale o tempo (e o custo de GPU) de o correr.
+    if p.dna is not None:
+        dna = p.dna
+        dna.source_path = p.ref
+        if p.text and not dna.text_events:
+            from velocity.reference import text_detect
+            dna.text_events = text_detect.detect_text(p.ref, dna.audio.beats if dna.audio.has_audio else [])
+    else:
+        dna = analyze_reference(p.ref, with_text=bool(p.text))
     det = detect(dna)
+    lap("reference_analysis")
     tlog(f"referência: {dna.signature.n_shots} planos, {dna.duration_s:.1f}s | Velocity={det.is_velocity} (score {det.score}) {det.reasons[:1]}")
     if not det.is_velocity and not p.force:
         tlog("Referência NÃO parece um Velocity suportado. Repita com force=True para continuar mesmo assim.")
@@ -111,6 +139,7 @@ def run_make(p: MakeParams, log=print) -> MakeResult:
     else:
         dna_ext, ext_info = extend_reference(dna, target_min=p.target_min, target_max=p.target_max)
     tlog(f"duração: {ext_info}")
+    stage("preparing_edit", 0.15)
 
     locator = None
     if p.subject_enhance:
@@ -127,6 +156,8 @@ def run_make(p: MakeParams, log=print) -> MakeResult:
     else:
         clips = [analyze_clip(c, locator) for c in p.clips]
     tlog(f"material: {len(clips)} clips, {sum(c.duration_s for c in clips):.1f}s no total")
+    lap("clip_analysis")
+    stage("preparing_edit", 0.25)
     if sum(c.duration_s for c in clips) < 0.6 * dna_ext.duration_s:
         tlog(f"  [aviso] material do utilizador ({sum(c.duration_s for c in clips):.1f}s) é escasso para {dna_ext.duration_s:.1f}s de edição — espera-se reutilização visível de trechos.")
 
@@ -139,12 +170,17 @@ def run_make(p: MakeParams, log=print) -> MakeResult:
         tl.music_path, tl.music_offset_s = p.ref, 0.0
         info = {**info, "audio": "da referência (loop automático)" if ext_info.get("acao") == "repetida" else "da referência"}
     tlog(f"matching feito; música: {info}")
+    lap("edit_planning")
 
     os.makedirs(os.path.dirname(os.path.abspath(p.out)), exist_ok=True)
     masks = {c.path: c.masks for c in clips if c.masks is not None}
-    render(tl, p.out, crf=p.crf, masks=masks, preset=p.preset)
+    stage("rendering", 0.3)
+    render(tl, p.out, crf=p.crf, masks=masks, preset=p.preset,
+           progress=lambda i, n: stage("rendering", 0.3 + 0.5 * i / n))
     tlog(f"render concluído -> {p.out}")
+    lap("render")
 
+    stage("applying_effects", 0.82)
     out_dna = analyze_reference(p.out, with_audio=bool(tl.music_path), with_text=False)
     fxrep = compare_effects(dna_ext, out_dna)
     pre_fidelity = compare(dna_ext, out_dna)["fidelity"]
@@ -180,9 +216,12 @@ def run_make(p: MakeParams, log=print) -> MakeResult:
         if not changes:
             break
         tlog(f"protetor de fidelidade (iteração {it + 1}): {', '.join(changes)}; a re-renderizar")
-        render(tl, p.out, crf=p.crf, masks=masks, preset=p.preset)
+        render(tl, p.out, crf=p.crf, masks=masks, preset=p.preset,
+               progress=lambda i, n: stage("applying_effects", 0.82 + 0.12 * i / n))
         out_dna = analyze_reference(p.out, with_audio=bool(tl.music_path), with_text=False)
         fxrep = compare_effects(dna_ext, out_dna)
+    lap("fidelity_check")
+    stage("finalizing", 0.95)
 
     tlog(f"efeitos: {fxrep['types']} | inventados={fxrep['invented']} | ok={fxrep['ok']} {fxrep['reasons']}")
     vibe_rep = compare_vibe(dna_ext, out_dna)
@@ -198,8 +237,12 @@ def run_make(p: MakeParams, log=print) -> MakeResult:
         "decisions": info.get("decisions", []), "fx_scale": tl.fx_scale,
         "post": [tl.post_gamma, tl.post_sat, tl.post_contrast, tl.post_sharp], "duration_s": out_dna.duration_s,
     }
+    timings["total"] = round(time.time() - t0, 2)
+    full_report["timings_s"] = timings
+    tlog("tempos por etapa: " + "  ".join(f"[{k.upper()}] {v:.1f}s" for k, v in timings.items()))
     if p.report:
         import json
         json.dump(full_report, open(p.report, "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
     return MakeResult(ok=True, out_path=p.out, detector=det, duration_s=out_dna.duration_s,
-                      fidelity=rep["fidelity"], vibe_score=vibe_rep.get("score"), report=full_report)
+                      fidelity=rep["fidelity"], vibe_score=vibe_rep.get("score"), report=full_report,
+                      timeline=tl, timings=timings)

@@ -1,66 +1,52 @@
-# Velocity Edits — motor de edição por IA (Velocity Edit Engine)
+# AwlsVelocity — AI reference video editor
 
-Recebe um vídeo de referência no estilo "Velocity" (cortes rápidos, zooms, speed ramps,
-transições ao ritmo da música) e recria essa **linguagem de edição** usando os vídeos do
-utilizador. O objetivo é a edição, não o conteúdo: o sistema mede a referência (Edit DNA),
-escolhe os melhores trechos do utilizador para cada papel na edição, e produz um vídeo
-vertical de ~25-30s no mesmo estilo.
+**Give AI a reference. It creates your edit.** O utilizador envia os próprios vídeos e um
+vídeo de referência; a IA mede a linguagem de edição da referência (cortes, ritmo, zooms,
+transições, efeitos, batida) e cria um vídeo vertical novo nesse estilo com o conteúdo do
+utilizador. Depois, um editor leve permite corrigir o resultado sem gerar tudo de novo.
 
-Estado do produto: **núcleo funcional, em validação com utilizadores reais.** Ver
-`docs/STATUS.md` para o detalhe técnico completo (o que funciona, limitações conhecidas,
-métricas medidas).
+- **Web/PWA** (instalável em Android e iPhone), interface mobile-first com versão desktop.
+- **Créditos** pagos (PayPal; e-Mola em Moçambique; códigos promo), preço configurável no Admin.
+- **Processamento assíncrono** em worker GPU sob demanda (RunPod, escala a zero) ou local.
 
-## Como usar (operador) — Velocity Studio
+Deploy: ver **[docs/DEPLOY.md](docs/DEPLOY.md)**. Estado técnico: [docs/STATUS.md](docs/STATUS.md).
 
-A forma mais simples de gerar vídeos é a interface web local:
+## Correr localmente
 
 ```powershell
 venv\Scripts\python.exe run_studio.py
 ```
+Abre `http://127.0.0.1:8811`. Sem Supabase configurado, contas/projetos ficam em `studio/data/`
+e os vídeos são gerados neste PC (cada conta nova recebe 50 créditos de teste).
 
-Abre `http://127.0.0.1:8811` no browser (abre sozinho). Carrega a referência, os teus
-vídeos e, opcionalmente, uma música; escolhe a qualidade (Rápido/Normal/HD); gera e
-descarrega. Processa uma encomenda de cada vez. Os ficheiros ficam em `studio/data/`
-(nunca saem do computador).
-
-## Como usar (linha de comandos)
-
-```powershell
-venv\Scripts\python.exe testar.py --profile standard
-```
-
-Lê `teste/1_reference` (1 vídeo), `teste/2_inputs` (os teus vídeos) e `teste/3_music`
-(opcional), escreve em `teste/4_output`. Ver `testar.py --help`-style docstring no topo do
-ficheiro para todas as opções. Para uso avançado, `python -m velocity make --help`.
-
-## Estrutura do projeto
+## Estrutura
 
 ```
-velocity/           núcleo do produto
-  reference/         análise da referência -> Edit DNA (cortes, transições, vibe, áudio, texto)
-  media/             análise dos vídeos do utilizador (energia, sujeito, segmentação)
-  matching/          escolhe o trecho certo para cada plano; extensão de duração (25-30s)
-  render/            Edit DNA + matches -> vídeo final (compositor, efeitos, super-resolução)
-  detector/          decide se uma referência é um Velocity suportado
-  evaluate/          compara o resultado com a referência (fidelidade, vibe, efeitos)
-  pipeline.py        orquestra tudo (usado pela CLI e pelo Studio)
-  cli.py             `python -m velocity ...`
-studio/              interface web local (FastAPI) — ver server.py e static/index.html
-bench/               material de teste, scripts de avaliação, cache de decodificação
-tests/               suite de testes automáticos (pytest)
-legacy/              MVP original (Python solto, mantido só para consulta)
-marketing/           página de vendas (landing.html) e textos de divulgação
+velocity/          motor de edição por IA (análise da referência, matching, render, avaliação)
+  edit/            editor pós-geração: aplica as edições do utilizador à timeline da IA
+  pipeline.py      geração completa (usada pelo worker e pela CLI)
+worker/            worker de processamento (runner.py; handler.py + Dockerfile para o RunPod)
+studio/            API FastAPI + app web
+  api.py           rotas /api (contas, projetos, uploads assinados, jobs, créditos, pagamentos, admin)
+  jobs.py          ciclo de vida dos jobs (créditos reservados antes, reembolso automático)
+  store/           dados: Supabase (produção) ou memória (dev/testes), mesmo contrato
+  compute/         fornecedores de computação: local ou RunPod (trocável)
+  payments/        PayPal (e e-Mola manual)
+  static/          app (app.html + js/), landing page, PWA (manifest, service worker, ícones)
+supabase-schema.sql  esquema completo e idempotente da base de dados
+tests/             pytest (motor, editor, API, ponta-a-ponta) + tests/sql (migração em Postgres real)
 ```
 
 ## Testes
 
 ```powershell
 venv\Scripts\python.exe -m pytest
+cd tests\sql; npm install; npm test
 ```
 
-## Documentação
+## Linha de comandos (motor)
 
-- `docs/STATUS.md` — estado técnico detalhado, decisões de arquitetura, limitações conhecidas.
-- `marketing/landing.html` — página de vendas (publicada como Artifact; edita e republica a
-  partir daqui se mudares preços/contacto).
-- `marketing/mensagens.md` — mensagens prontas para WhatsApp/Instagram e checklist de encomenda.
+```powershell
+venv\Scripts\python.exe testar.py --profile standard
+venv\Scripts\python.exe -m velocity make --help
+```
