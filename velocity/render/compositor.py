@@ -7,7 +7,9 @@ aplica zoom/pan por keyframes e, no fim, o efeito da transição centrado no cor
 from __future__ import annotations
 
 import math
+import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 
 import cv2
 import numpy as np
@@ -28,12 +30,37 @@ def source_frames_needed(shot_frames: int, speed: Curve) -> float:
     return float(np.sum(_interp(speed, tau)))
 
 
-def decode_window(path: str, t0: float, n_frames: int, w: int, h: int, cover_scale: float, fps: float, denoise: float = 0.0) -> np.ndarray:
-    """Frames [n,H',W',3] a `fps`, escalados para COBRIR (w*cs, h*cs) e cortados ao centro nesse tamanho."""
-    info = probe(path)
+def _even_floor(x: float) -> int:
+    return max(2, int(x) // 2 * 2)
+
+
+def _window_size(info, w: int, h: int, cover_scale: float) -> tuple[int, int]:
+    """(largura, altura) a que `decode_window` decodifica: cover de (w*cs, h*cs), sem ampliar a fonte."""
     tw, th = int(round(w * cover_scale / 2)) * 2, int(round(h * cover_scale / 2)) * 2
-    src_ar, dst_ar = info.aspect, tw / th
-    if src_ar > dst_ar:
+    dst_ar = tw / th
+    if info.aspect > dst_ar:
+        if th > info.height:
+            th = _even_floor(info.height)
+            tw = _even_floor(th * dst_ar)
+    elif tw > info.width:
+        tw = _even_floor(info.width)
+        th = _even_floor(tw / dst_ar)
+    return tw, th
+
+
+def decode_window(path: str, t0: float, n_frames: int, w: int, h: int, cover_scale: float, fps: float, denoise: float = 0.0) -> np.ndarray:
+    """Frames [n,H',W',3] a `fps`, com o MESMO enquadramento de um "cover" de (w*cs, h*cs)
+    cortado ao centro, mas nunca maiores que a resolução nativa da fonte.
+
+    Ampliar aqui não acrescenta detalhe nenhum (a fonte não o tem) e custava caro: com clips de
+    telemóvel a 480x864 e saída 720x1280 com margem de zoom 2x, cada frame era ampliado para
+    1440x2560 no ffmpeg só para o warpAffine o voltar a reduzir — ~9x mais píxeis descodificados
+    e enviados pelo pipe. O campo de visão é o mesmo; quem amplia agora (uma única vez, bicúbico)
+    é o warpAffine em `_render_shot`.
+    """
+    info = probe(path)
+    tw, th = _window_size(info, w, h, cover_scale)
+    if info.aspect > tw / th:
         vf = f"scale=-2:{th}:flags=bicubic,crop={tw}:{th}"
     else:
         vf = f"scale={tw}:-2:flags=bicubic,crop={tw}:{th}"
@@ -97,31 +124,49 @@ def _enhance(out: np.ndarray, alpha: np.ndarray, clip: ClipUse) -> np.ndarray:
     return (a * subj.astype(np.float32) + (1.0 - a) * cv2.LUT(out, lut_b).astype(np.float32)).clip(0, 255).astype(np.uint8)
 
 
-def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None):
-    """Gera (frame_global, imagem) para cada frame do plano, ainda SEM efeito de transição."""
-    clip: ClipUse = shot.clip
-    L = shot.n_frames
-    fps = tl.fps
-    tau = (np.arange(L) + 0.5) / L
-    rate = _interp(clip.speed, tau)
-    cum = np.concatenate([[0.0], np.cumsum(rate)[:-1]])  # posição fonte (em frames) do início de cada frame de saída
-    need = int(math.ceil(cum[-1] + rate[-1])) + 3
+class _ShotPlan:
+    """Tudo o que se calcula de um plano ANTES de decodificar (barato, sem I/O)."""
 
-    zk = _interp(clip.zoom, tau) * tl.zoom_gain + fxstack.zoom_extra(shot.start_frame, L, tl.effects, tl.fx_scale)
-    zk = np.maximum(zk, 0.0)  # ln(escala) ABSOLUTO >= 0 (1x = cover-fit)
-    scale = np.exp(zk)
-    max_scale = float(scale.max())
-    cover = max(1.0, min(max_scale, 2.0))  # decodifica com margem p/ não desfocar em zoom-in
-    frames = None
+    __slots__ = ("L", "tau", "rate", "cum", "need", "scale", "max_scale", "cover")
+
+    def __init__(self, shot: TimelineShot, tl: Timeline):
+        clip = shot.clip
+        self.L = L = shot.n_frames
+        self.tau = tau = (np.arange(L) + 0.5) / L
+        self.rate = rate = _interp(clip.speed, tau)
+        self.cum = cum = np.concatenate([[0.0], np.cumsum(rate)[:-1]])  # posição fonte (em frames) do início de cada frame de saída
+        self.need = int(math.ceil(cum[-1] + rate[-1])) + 3
+        zk = _interp(clip.zoom, tau) * tl.zoom_gain + fxstack.zoom_extra(shot.start_frame, L, tl.effects, tl.fx_scale)
+        zk = np.maximum(zk, 0.0)  # ln(escala) ABSOLUTO >= 0 (1x = cover-fit)
+        self.scale = np.exp(zk)
+        self.max_scale = float(self.scale.max())
+        self.cover = max(1.0, min(self.max_scale, 2.0))  # margem p/ não desfocar em zoom-in (limitada à resolução nativa)
+
+
+def _decode_shot(shot: TimelineShot, tl: Timeline, plan: _ShotPlan) -> np.ndarray:
+    clip: ClipUse = shot.clip
     if tl.sr and srmod.available():
         info = probe(clip.source_path)
         a = tl.width / tl.height
         nw, nh = (int(info.height * a) // 2 * 2, info.height // 2 * 2) if info.aspect > a else (info.width // 2 * 2, int(info.width / a) // 2 * 2)
-        if tl.width * max_scale / nw >= 1.5:  # só onde a ampliação é grande
-            native = decode_window(clip.source_path, clip.src_start_s, need, nw, nh, 1.0, fps, tl.denoise)
-            frames = srmod.enhance_native(native, 1.5, key=(clip.source_path, round(clip.src_start_s, 3), need, tl.denoise))
+        if tl.width * plan.max_scale / nw >= 1.5:  # só onde a ampliação é grande
+            native = decode_window(clip.source_path, clip.src_start_s, plan.need, nw, nh, 1.0, tl.fps, tl.denoise)
+            return srmod.enhance_native(native, 1.5, key=(clip.source_path, round(clip.src_start_s, 3), plan.need, tl.denoise))
+    return decode_window(clip.source_path, clip.src_start_s, plan.need, tl.width, tl.height, plan.cover, tl.fps, tl.denoise)
+
+
+def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None,
+                 plan: _ShotPlan | None = None, frames: np.ndarray | None = None):
+    """Gera (frame_global, imagem) para cada frame do plano, ainda SEM efeito de transição.
+
+    `frames` pode vir já decodificado (pré-busca paralela em `render`); senão decodifica aqui.
+    """
+    clip: ClipUse = shot.clip
+    plan = plan or _ShotPlan(shot, tl)
+    L, tau, rate, cum, scale = plan.L, plan.tau, plan.rate, plan.cum, plan.scale
+    fps = tl.fps
     if frames is None:
-        frames = decode_window(clip.source_path, clip.src_start_s, need, tl.width, tl.height, cover, fps, tl.denoise)
+        frames = _decode_shot(shot, tl, plan)
     n_src, H, W = frames.shape[0], frames.shape[1], frames.shape[2]
 
     mask_arr = (masks or {}).get(clip.source_path)
@@ -146,8 +191,14 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None):
         sdx, sdy = fxstack.shake_offsets(shot.start_frame + j, tl.effects, W, tl.fx_scale)
         x0 = float(np.clip(cx - rw / 2 + sdx, 0, W - rw))
         y0 = float(np.clip(cy - rh / 2 + sdy, 0, H - rh))
-        m = np.array([[tl.width / rw, 0, -x0 * tl.width / rw], [0, tl.height / rh, -y0 * tl.height / rh]], np.float32)
-        out = cv2.warpAffine(img, m, (tl.width, tl.height), flags=cv2.INTER_LINEAR)
+        sx, sy = tl.width / rw, tl.height / rh
+        # +0.5*(s-1): mapeia CENTROS de pixel (o warpAffine mapeia índices); sem isto a imagem
+        # desloca meio pixel da fonte, o que se nota mais agora que a fonte vem à resolução nativa.
+        m = np.array([[sx, 0, -x0 * sx + 0.5 * (sx - 1)], [0, sy, -y0 * sy + 0.5 * (sy - 1)]], np.float32)
+        # a ampliar (fonte decodificada abaixo da saída): bicúbico, a mesma qualidade que o
+        # ffmpeg dava antes ao ampliar no decode; a reduzir, linear como sempre foi.
+        interp = cv2.INTER_CUBIC if tl.width / rw > 1.001 else cv2.INTER_LINEAR
+        out = cv2.warpAffine(img, m, (tl.width, tl.height), flags=interp)
         if clip.flip:
             out = out[:, ::-1]
         if use_mask:
@@ -199,6 +250,44 @@ class _Writer:
             raise RuntimeError(f"ffmpeg encode falhou: {err[-600:]}")
 
 
+DECODE_WORKERS = int(os.environ.get("VELOCITY_DECODE_WORKERS", str(min(4, os.cpu_count() or 2))))
+DECODE_MEM_MB = int(os.environ.get("VELOCITY_DECODE_MEM_MB", "512"))
+
+
+def _est_bytes(shot: TimelineShot, tl: Timeline, plan: _ShotPlan) -> int:
+    tw, th = _window_size(probe(shot.clip.source_path), tl.width, tl.height, plan.cover)
+    return plan.need * tw * th * 3
+
+
+def _prefetched_frames(tl: Timeline, plans: list[_ShotPlan]):
+    """Itera os frames decodificados de cada plano, por ordem, decodificando os SEGUINTES em
+    paralelo enquanto o atual é composto (a decodificação ffmpeg corre noutro processo e
+    liberta o GIL, por isso há ganho real). Nunca tem mais de DECODE_MEM_MB em memória
+    pendente — com clips 4K a pré-busca encolhe sozinha até 1 plano de cada vez.
+    """
+    n = len(tl.shots)
+    if DECODE_WORKERS <= 1 or tl.sr:  # super-resolução usa um modelo partilhado: sem threads
+        for si in range(n):
+            yield _decode_shot(tl.shots[si], tl, plans[si])
+        return
+    budget = DECODE_MEM_MB * 1024 * 1024
+    sizes = [_est_bytes(tl.shots[i], tl, plans[i]) for i in range(n)]
+    ex = ThreadPoolExecutor(max_workers=DECODE_WORKERS)
+    pending: dict[int, object] = {}
+    nxt, inflight = 0, 0
+    try:
+        for si in range(n):
+            while nxt < n and (nxt == si or (len(pending) < DECODE_WORKERS + 1 and inflight + sizes[nxt] <= budget)):
+                pending[nxt] = ex.submit(_decode_shot, tl.shots[nxt], tl, plans[nxt])
+                inflight += sizes[nxt]
+                nxt += 1
+            frames = pending.pop(si).result()
+            inflight -= sizes[si]
+            yield frames
+    finally:
+        ex.shutdown(wait=True, cancel_futures=True)
+
+
 def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dict | None = None, preset: str = "medium") -> str:
     duration = tl.n_frames / tl.fps
     w = _Writer(out_path, tl.width, tl.height, tl.fps, tl.music_path, tl.music_offset_s, duration, crf, preset)
@@ -208,9 +297,11 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
         x = 255.0 * (np.arange(256) / 255.0) ** tl.post_gamma
         post_lut = (tl.post_pivot + (x - tl.post_pivot) * tl.post_contrast).clip(0, 255).astype(np.uint8)
     written = 0
+    plans = [_ShotPlan(s, tl) for s in tl.shots]
+    decoded = _prefetched_frames(tl, plans)
     try:
-        for si, shot in enumerate(tl.shots):
-            for f, img in _render_shot(shot, tl, masks):
+        for si, (shot, frames) in enumerate(zip(tl.shots, decoded)):
+            for f, img in _render_shot(shot, tl, masks, plans[si], frames):
                 if tl.effects:
                     img = fxstack.post_fx(img, f, tl.effects, tl.fx_scale)
                 # efeitos cuja janela contém f (transições e eventos de fx)
@@ -236,6 +327,7 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
             if progress:
                 progress(si + 1, len(tl.shots))
     finally:
+        decoded.close()
         w.close()
     if written != tl.n_frames:
         raise RuntimeError(f"timeline incoerente: escreveu {written} frames, esperava {tl.n_frames}")
