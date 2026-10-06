@@ -1,563 +1,203 @@
-"""Studio — interface web local para operar o Velocity Engine sem usar a linha de comandos.
+"""AwlsVelocity — servidor web (API + páginas). Orquestra; nunca faz processamento pesado se
+COMPUTE_PROVIDER=runpod (aí o vídeo é gerado no worker GPU e esta API só cria/acompanha jobs).
 
-Desenhado para UM operador (o utilizador) processar encomendas: recebe referência + vídeos do
-cliente, gera o vídeo, mostra o resultado e o relatório, disponibiliza para download. Corre
-localmente (não está exposto à Internet). Os jobs correm em SÉRIE (um de cada vez) numa thread
-de fundo, para não competir por CPU/GPU consigo próprio — e para os modelos (OCR, segmentador de
-pessoas) ficarem quentes em memória entre encomendas, em vez de recarregar a cada geração
-(o maior custo fixo por vídeo nesta máquina).
+Arrancar localmente:  python run_studio.py   (sem Supabase: dados em memória, ficheiros em disco)
+Produção (Render):    uvicorn studio.server:app --host 0.0.0.0 --port $PORT
 """
 from __future__ import annotations
 
-import json
+import html
+import logging
 import os
-import shutil
 import sys
-import threading
 import time
-import traceback
-import uuid
-from collections import defaultdict, deque
-from dataclasses import dataclass, field
-from queue import Queue
+from contextlib import asynccontextmanager
+from urllib.parse import urlparse
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from fastapi import Depends, FastAPI, File, Form, Request, Response, UploadFile  # noqa: E402
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse  # noqa: E402
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
-from studio import auth, db  # noqa: E402
-from studio import payments_paypal as pp  # noqa: E402
-from velocity.detector.velocity_detector import detect  # noqa: E402
-from velocity.pipeline import PROFILES, MakeParams, run_make  # noqa: E402
-from velocity.reference.analyzer import analyze_reference  # noqa: E402
+from studio import config  # noqa: E402
+from studio.api import jobs, router  # noqa: E402
+from studio.errors import ApiError  # noqa: E402
+from studio.store import get_store  # noqa: E402
 
-# Sem plano grátis: cada geração consome 1 crédito pago (PayPal, automático, ou e-Mola,
-# confirmado manualmente pelo operador). Ver studio/payments_paypal.py para o porquê dos
-# pacotes em vez de $0.50 isolado.
-PRICES_MT = {"fast": 150, "standard": 200, "hd": 300}
-# Número para onde os clientes transferem (e-Mola). O site nunca pede PIN nem qualquer
-# dado da conta — só mostra este número e depois deixa o cliente DECLARAR quanto pagou;
-# um pagamento só conta depois de o operador confirmar manualmente em /admin.
-EMOLA_NUMBER = "868116236"
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger("awls")
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
-AUDIO_EXT = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"}
-MAX_UPLOAD_MB = int(os.environ.get("VELOCITY_MAX_UPLOAD_MB", "300"))
-MAX_CLIPS = int(os.environ.get("VELOCITY_MAX_CLIPS", "30"))
-MAX_QUEUE = int(os.environ.get("VELOCITY_MAX_QUEUE", "3"))
-# Num serviço público e de baixo custo (ex.: free tier, 1 CPU), cada job ocupa a única
-# instância durante minutos — sem isto, um único IP podia enfileirar dezenas de jobs e
-# bloquear todos os outros visitantes.
-RATE_LIMIT_JOBS = int(os.environ.get("VELOCITY_RATE_LIMIT_JOBS", "5"))
-RATE_LIMIT_WINDOW_S = int(os.environ.get("VELOCITY_RATE_LIMIT_WINDOW_S", "3600"))
-START_TIME = time.time()
+STATIC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+START = time.time()
 
-app = FastAPI(title="AwlsVelocity")
-
-_rate_lock = threading.Lock()
-_rate_hits: dict[str, deque] = defaultdict(deque)
+@asynccontextmanager
+async def _lifespan(app_: FastAPI):
+    _startup()
+    yield
 
 
-def _client_ip(req: Request) -> str:
-    fwd = req.headers.get("x-forwarded-for")
-    if fwd:
-        return fwd.split(",")[0].strip()
-    return req.client.host if req.client else "unknown"
+app = FastAPI(title=config.APP_NAME, docs_url=None, redoc_url=None, openapi_url=None, lifespan=_lifespan)
+app.state.maintenance = None
 
 
-def _rate_limited(ip: str) -> bool:
-    now = time.time()
-    with _rate_lock:
-        hits = _rate_hits[ip]
-        while hits and now - hits[0] > RATE_LIMIT_WINDOW_S:
-            hits.popleft()
-        if len(hits) >= RATE_LIMIT_JOBS:
-            return True
-        hits.append(now)
-        return False
+# ----------------------------------------------------------------------- erros
+def _err(status: int, code: str, message: str, **extra) -> JSONResponse:
+    return JSONResponse({"error": {"code": code, "message": message, **extra}}, status_code=status)
 
 
-class UploadTooLarge(Exception):
-    pass
+@app.exception_handler(ApiError)
+async def _api_error(request: Request, e: ApiError):
+    return _err(e.status, e.code, e.message, **e.extra)
 
 
-@dataclass
-class Job:
-    id: str
-    user_id: str | None = None
-    status: str = "queued"  # queued | running | done | rejected | error
-    log: list[str] = field(default_factory=list)
-    created_at: float = field(default_factory=time.time)
-    dir: str = ""
-    out_path: str | None = None
-    video_url: str | None = None
-    report: dict | None = None
-    error: str | None = None
-
-    def to_json(self):
-        return {"id": self.id, "status": self.status, "log": self.log, "report": self.report, "error": self.error,
-                "has_video": bool(self.out_path and os.path.exists(self.out_path)), "video_url": self.video_url}
+@app.exception_handler(RequestValidationError)
+async def _validation(request: Request, e: RequestValidationError):
+    return _err(400, "bad_request", "Something in this request isn't valid.")
 
 
-JOBS: dict[str, Job] = {}
-JOBS_LOCK = threading.Lock()
-QUEUE: "Queue[str]" = Queue()
+@app.exception_handler(Exception)
+async def _unhandled(request: Request, e: Exception):
+    log.exception("erro não tratado em %s %s", request.method, request.url.path)
+    return _err(500, "internal", "Something went wrong. Please try again.")
 
 
-def _worker():
-    """Processa um job de cada vez, para nunca competir por CPU/GPU com uma geração em curso."""
-    while True:
-        job_id = QUEUE.get()
-        job = JOBS.get(job_id)
-        if job is None:
-            continue
-        job.status = "running"
+# ------------------------------------------------------------------ middleware
+_UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
+_WEBHOOKS = ("/api/payments/paypal/webhook", "/api/compute/runpod/webhook")
+_CSP = ("default-src 'self'; "
+        "script-src 'self' https://www.paypal.com https://*.paypal.com https://*.paypalobjects.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "img-src 'self' data: blob: https:; media-src 'self' blob: https:; "
+        "connect-src 'self' https://*.supabase.co https://*.paypal.com; "
+        "frame-src https://*.paypal.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+
+
+@app.middleware("http")
+async def _guard(request: Request, call_next):
+    path = request.url.path
+    if path.startswith("/api/"):
+        # CSRF: um pedido que altera estado tem de vir da nossa própria origem (além de SameSite=Lax)
+        if request.method in _UNSAFE and not path.startswith(_WEBHOOKS):
+            origin = request.headers.get("origin")
+            if origin and urlparse(origin).netloc != request.headers.get("host"):
+                return _err(403, "forbidden", "Cross-site request blocked.")
+        if app.state.maintenance and path not in ("/api/me",) and not path.startswith(_WEBHOOKS):
+            return _err(503, "maintenance", "We're updating AwlsVelocity. Please try again in a few minutes.")
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if response.headers.get("content-type", "").startswith("text/html"):
+        response.headers.setdefault("Content-Security-Policy", _CSP)
+    if path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
+app.include_router(router)
+
+
+# ----------------------------------------------------------------- arranque
+def _startup():
+    if config.USE_SUPABASE:
         try:
-            _run_job(job)
-        except Exception as e:  # nunca deixa o worker morrer por causa de um job
-            job.status = "error"
-            job.error = f"{type(e).__name__}: {e}"
-            job.log.append(f"[ERRO] {job.error}")
-            job.log.append(traceback.format_exc(limit=6))
-
-
-def _ext_ok(name: str, allowed: set) -> bool:
-    return os.path.splitext(name)[1].lower() in allowed
-
-
-def _save_upload(f, dest_dir: str) -> str:
-    safe_name = os.path.basename(f.filename or "ficheiro")
-    path = os.path.join(dest_dir, safe_name)
-    i = 1
-    base, ext = os.path.splitext(path)
-    while os.path.exists(path):
-        path = f"{base}_{i}{ext}"
-        i += 1
-    max_bytes = MAX_UPLOAD_MB * 1024 * 1024
-    written = 0
-    chunk = 1024 * 1024
-    try:
-        with open(path, "wb") as out:
-            while True:
-                buf = f.file.read(chunk)
-                if not buf:
-                    break
-                written += len(buf)
-                if written > max_bytes:
-                    raise UploadTooLarge(f"{f.filename}: excede o limite de {MAX_UPLOAD_MB}MB")
-                out.write(buf)
-    except UploadTooLarge:
-        if os.path.exists(path):
-            os.remove(path)
-        raise
-    return path
-
-
-def _persist(job: Job, **fields):
-    """Espelha o estado do job na base de dados, se estiver configurada (modo público/nuvem)."""
-    if db.enabled() and job.user_id:
-        try:
-            db.update_job(job.id, **fields)
-        except Exception as e:  # a BD nunca deve derrubar uma geração já concluída
-            job.log.append(f"[aviso] não foi possível gravar na base de dados: {e}")
-
-
-def _run_job(job: Job):
-    def log(m: str):
-        job.log.append(m)
-
-    meta = json.load(open(os.path.join(job.dir, "params.json"), encoding="utf-8"))
-    ref = meta["ref"]
-    clips = meta["clips"]
-    music = meta.get("music")
-    out_path = os.path.join(job.dir, "resultado.mp4")
-    report_path = os.path.join(job.dir, "relatorio.json")
-
-    text_lines = [t.strip() for t in (meta.get("text") or "").splitlines() if t.strip()] or None
-
-    p = MakeParams(
-        ref=ref, clips=clips, out=out_path, music=music, profile=meta.get("profile", "standard"),
-        subject_enhance=bool(meta.get("subject_enhance")), force=bool(meta.get("force")), text=text_lines,
-        report=report_path,
-    )
-    res = run_make(p, log=log)
-    if res.rejected:
-        job.status = "rejected"
-        job.error = res.error
-        job.report = {"detector": res.detector.__dict__ if res.detector else None}
-        _persist(job, status="rejected", error=job.error, report=job.report)
-        return
-    if not res.ok:
-        job.status = "error"
-        job.error = res.error or "falha desconhecida"
-        _persist(job, status="error", error=job.error)
-        return
-    job.out_path = res.out_path
-    job.report = res.report
-    job.status = "done"
-    if db.enabled() and job.user_id:
-        try:
-            job.video_url = db.upload_video(job.id, job.out_path)
-            db.consume_edit(job.user_id)
-        except Exception as e:
-            job.log.append(f"[aviso] não foi possível arquivar o vídeo na nuvem: {e}")
-        _persist(job, status="done", report=job.report, video_url=job.video_url)
-
-
-threading.Thread(target=_worker, daemon=True).start()
-
-
-@app.post("/api/jobs")
-async def create_job(
-    request: Request,
-    reference: UploadFile = File(...),
-    clips: list[UploadFile] = File(...),
-    music: UploadFile | None = File(None),
-    profile: str = Form("standard"),
-    subject_enhance: bool = Form(False),
-    force: bool = Form(False),
-    text: str = Form(""),
-    user=Depends(auth.get_current_user),
-):
-    if db.enabled():
-        if user is None:
-            return JSONResponse({"error": "inicia sessão para gerar um vídeo"}, status_code=401)
-        if not db.can_edit(user.id):
-            return JSONResponse(
-                {"error": "precisas de créditos para gerar — cada geração custa $0.50 (comprado em pacotes)",
-                 "payment_required": True},
-                status_code=402,
-            )
-    ip = _client_ip(request)
-    if _rate_limited(ip):
-        return JSONResponse(
-            {"error": f"limite de {RATE_LIMIT_JOBS} pedidos por hora atingido. Tenta mais tarde."},
-            status_code=429,
-        )
-    if QUEUE.qsize() >= MAX_QUEUE:
-        return JSONResponse(
-            {"error": "servidor ocupado — há muitos vídeos em fila. Tenta novamente daqui a alguns minutos."},
-            status_code=503,
-        )
-    if not _ext_ok(reference.filename, VIDEO_EXT):
-        return JSONResponse({"error": f"referência: formato não suportado ({reference.filename})"}, status_code=400)
-    if not clips:
-        return JSONResponse({"error": "envie pelo menos 1 vídeo seu"}, status_code=400)
-    if len(clips) > MAX_CLIPS:
-        return JSONResponse({"error": f"máximo de {MAX_CLIPS} vídeos por pedido"}, status_code=400)
-    for c in clips:
-        if not _ext_ok(c.filename, VIDEO_EXT):
-            return JSONResponse({"error": f"vídeo do utilizador: formato não suportado ({c.filename})"}, status_code=400)
-    if music is not None and music.filename and not _ext_ok(music.filename, AUDIO_EXT):
-        return JSONResponse({"error": f"música: formato não suportado ({music.filename})"}, status_code=400)
-    if profile not in PROFILES:
-        profile = "standard"
-
-    job_id = uuid.uuid4().hex[:12]
-    job_dir = os.path.join(DATA_DIR, job_id)
-    os.makedirs(job_dir, exist_ok=True)
-    try:
-        ref_path = _save_upload(reference, job_dir)
-        clip_paths = [_save_upload(c, job_dir) for c in clips]
-        music_path = _save_upload(music, job_dir) if (music is not None and music.filename) else None
-    except UploadTooLarge as e:
-        shutil.rmtree(job_dir, ignore_errors=True)
-        return JSONResponse({"error": str(e)}, status_code=413)
-
-    json.dump({"ref": ref_path, "clips": clip_paths, "music": music_path, "profile": profile,
-               "subject_enhance": subject_enhance, "force": force, "text": text},
-              open(os.path.join(job_dir, "params.json"), "w", encoding="utf-8"))
-
-    user_id = user.id if user is not None else None
-    job = Job(id=job_id, dir=job_dir, user_id=user_id)
-    with JOBS_LOCK:
-        JOBS[job_id] = job
-    if db.enabled() and user_id:
-        try:
-            db.upsert_job(job_id, user_id, status="queued", profile=profile)
-        except Exception as e:
-            job.log.append(f"[aviso] não foi possível registar o job na base de dados: {e}")
-    QUEUE.put(job_id)
-    return {"job_id": job_id}
-
-
-@app.get("/api/jobs/{job_id}")
-def get_job(job_id: str):
-    job = JOBS.get(job_id)
-    if job is None:
-        return JSONResponse({"error": "job desconhecido"}, status_code=404)
-    return job.to_json()
-
-
-@app.get("/api/jobs/{job_id}/video")
-def get_video(job_id: str):
-    job = JOBS.get(job_id)
-    if job is not None and job.out_path and os.path.exists(job.out_path):
-        return FileResponse(job.out_path, media_type="video/mp4", filename=f"velocity_{job_id}.mp4")
-    if job is not None and job.video_url:
-        return RedirectResponse(job.video_url)
-    return JSONResponse({"error": "vídeo indisponível"}, status_code=404)
-
-
-@app.get("/api/jobs/{job_id}/report")
-def get_report(job_id: str):
-    job = JOBS.get(job_id)
-    if job is None or not job.report:
-        return JSONResponse({"error": "relatório indisponível"}, status_code=404)
-    return job.report
-
-
-@app.post("/api/check-reference")
-async def check_reference(reference: UploadFile = File(...)):
-    """Verificação rápida (sem gerar nada): esta referência parece um Velocity suportado?"""
-    if not _ext_ok(reference.filename, VIDEO_EXT):
-        return JSONResponse({"error": "formato não suportado"}, status_code=400)
-    tmp_dir = os.path.join(DATA_DIR, "_check", uuid.uuid4().hex[:8])
-    os.makedirs(tmp_dir, exist_ok=True)
-    path = _save_upload(reference, tmp_dir)
-    try:
-        dna = analyze_reference(path, with_text=False)
-        d = detect(dna)
-        return {"is_velocity": d.is_velocity, "score": d.score, "reasons": d.reasons,
-                "duration_s": dna.duration_s, "n_shots": dna.signature.n_shots}
-    finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-
-
-os.makedirs(DATA_DIR, exist_ok=True)
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-
-
-def _page(name: str) -> HTMLResponse:
-    return HTMLResponse(open(os.path.join(STATIC_DIR, name), encoding="utf-8").read())
+            v = get_store().schema_version()
+        except Exception:
+            v = 0
+        if v < 3:
+            app.state.maintenance = "schema"
+            log.critical("Base de dados desatualizada (schema_version=%s). Corre supabase-schema.sql no "
+                         "Supabase (SQL Editor) — até lá a API responde 'maintenance'.", v)
+            return
+    if not config.USE_SUPABASE:
+        log.warning("Sem Supabase: dados em MEMÓRIA (perdem-se ao reiniciar) e ficheiros em disco. Só para desenvolvimento.")
+    if config.COMPUTE_PROVIDER == "local":
+        log.warning("COMPUTE_PROVIDER=local: os vídeos são gerados na CPU deste servidor.")
+    jobs().start_monitor()
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "uptime_s": round(time.time() - START_TIME, 1), "queue": QUEUE.qsize()}
+    return {"status": "ok" if not app.state.maintenance else "maintenance",
+            "uptime_s": round(time.time() - START, 1), "provider": config.COMPUTE_PROVIDER}
 
 
-# ---------------------------------------------------------------------------
-# Autenticação — o Supabase Auth trata do hash da password; nós só guardamos a
-# sessão (access/refresh token) num cookie httponly. Sem SUPABASE_URL/SERVICE_KEY
-# configurados (uso local, um único operador), estas rotas ficam desativadas e o
-# resto do site funciona sem login, como antes.
-# ---------------------------------------------------------------------------
-
-@app.post("/api/auth/signup")
-async def signup(request: Request, response: Response):
-    if not db.enabled():
-        return JSONResponse({"error": "registo indisponível neste modo"}, status_code=400)
-    body = await request.json()
-    email, password = (body.get("email") or "").strip(), body.get("password") or ""
-    if not email or len(password) < 6:
-        return JSONResponse({"error": "email inválido ou password com menos de 6 caracteres"}, status_code=400)
-    try:
-        res = db.get_client().auth.sign_up({"email": email, "password": password})
-    except Exception as e:
-        return JSONResponse({"error": f"não foi possível criar a conta: {e}"}, status_code=400)
-    if res.session is None:
-        # Projeto com confirmação de email ativada: sem sessão imediata.
-        return {"ok": True, "confirm_email": True}
-    auth.set_session_cookie(response, res.session.access_token, res.session.refresh_token)
-    return {"ok": True}
-
-
-@app.post("/api/auth/login")
-async def login(request: Request, response: Response):
-    if not db.enabled():
-        return JSONResponse({"error": "login indisponível neste modo"}, status_code=400)
-    body = await request.json()
-    email, password = (body.get("email") or "").strip(), body.get("password") or ""
-    try:
-        res = db.get_client().auth.sign_in_with_password({"email": email, "password": password})
-    except Exception:
-        return JSONResponse({"error": "email ou password incorretos"}, status_code=401)
-    auth.set_session_cookie(response, res.session.access_token, res.session.refresh_token)
-    return {"ok": True}
-
-
-@app.post("/api/auth/logout")
-def logout(response: Response):
-    auth.clear_session_cookie(response)
-    return {"ok": True}
-
-
-@app.get("/api/me")
-def me(user=Depends(auth.get_current_user)):
-    if not db.enabled():
-        return {"logged_in": True, "local_mode": True}
-    if user is None:
-        return {"logged_in": False}
-    profile = db.ensure_profile(user.id, user.email)
-    return {
-        "logged_in": True,
-        "email": user.email,
-        "is_owner": bool(auth.OWNER_EMAIL) and (user.email or "").lower() == auth.OWNER_EMAIL.lower(),
-        "paid_credits": profile.get("paid_credits", 0),
-        "can_edit": db.can_edit(user.id),
-        "emola_number": EMOLA_NUMBER,
-        "prices_mt": PRICES_MT,
-        "paypal": {"enabled": pp.enabled(), "client_id": pp.client_id(), "packs": pp.PACKS} if pp.enabled() else {"enabled": False},
-    }
-
-
-# ---------------------------------------------------------------------------
-# Pagamentos — fluxo por declaração + confirmação manual. O cliente transfere
-# pelo seu próprio telemóvel para o EMOLA_NUMBER e só depois diz aqui quanto
-# pagou; nunca pedimos PIN nem qualquer dado da conta e-Mola. Um pagamento só
-# desbloqueia uma edição depois de o operador (o dono, `/admin`) confirmar.
-# ---------------------------------------------------------------------------
-
-@app.post("/api/payments/declare")
-async def declare_payment(request: Request, user=Depends(auth.require_user)):
-    body = await request.json()
-    try:
-        amount = float(body.get("amount_mt"))
-    except (TypeError, ValueError):
-        return JSONResponse({"error": "valor inválido"}, status_code=400)
-    if amount <= 0:
-        return JSONResponse({"error": "valor inválido"}, status_code=400)
-    reference = (body.get("reference") or "").strip()[:200] or None
-    row = db.declare_payment(user.id, amount, reference)
-    return {"ok": True, "payment": row}
-
-
-@app.get("/api/payments/mine")
-def my_payments(user=Depends(auth.require_user)):
-    return {"payments": db.list_my_payments(user.id)}
-
-
-@app.get("/api/admin/payments")
-def admin_payments(user=Depends(auth.require_owner)):
-    return {"payments": db.list_pending_payments()}
-
-
-@app.post("/api/admin/payments/{payment_id}/confirm")
-def admin_confirm_payment(payment_id: str, user=Depends(auth.require_owner)):
-    db.confirm_payment(payment_id)
-    return {"ok": True}
-
-
-# ---------------------------------------------------------------------------
-# PayPal — pagamento automático internacional. O frontend NUNCA decide o preço nem
-# credita nada: cria-se a order com o preço de PACKS (backend), o cliente aprova no
-# PayPal, e só o WEBHOOK (assinatura verificada pela própria API do PayPal) é que
-# concede créditos — nunca a resposta síncrona da captura. Ver studio/payments_paypal.py.
-# ---------------------------------------------------------------------------
-
-@app.post("/api/payments/paypal/create-order")
-async def paypal_create_order(request: Request, user=Depends(auth.require_user)):
-    if not pp.enabled():
-        return JSONResponse({"error": "pagamento por PayPal indisponível"}, status_code=400)
-    body = await request.json()
-    pack_id = body.get("pack_id")
-    if pack_id not in pp.PACKS:
-        return JSONResponse({"error": "pacote inválido"}, status_code=400)
-    try:
-        order = pp.create_order(pack_id, user.id)
-    except Exception as e:
-        return JSONResponse({"error": f"não foi possível criar o pagamento: {e}"}, status_code=502)
-    return {"order_id": order["id"]}
-
-
-@app.post("/api/payments/paypal/capture/{order_id}")
-def paypal_capture_order(order_id: str, user=Depends(auth.require_user)):
-    """Finaliza a cobrança no PayPal. Não credita nada aqui — isso só acontece quando o
-    webhook (fonte da verdade) confirmar. O frontend faz polling a /api/me entretanto."""
-    if not pp.enabled():
-        return JSONResponse({"error": "pagamento por PayPal indisponível"}, status_code=400)
-    try:
-        cap = pp.capture_order(order_id)
-    except Exception as e:
-        return JSONResponse({"error": f"pagamento não confirmado: {e}"}, status_code=502)
-    return {"status": cap.get("status", "UNKNOWN")}
-
-
-@app.post("/api/payments/paypal/webhook")
-async def paypal_webhook(request: Request):
-    body = await request.json()
-    if not pp.verify_webhook_signature(dict(request.headers), body):
-        return JSONResponse({"error": "assinatura inválida"}, status_code=400)
-    if body.get("event_type") != "PAYMENT.CAPTURE.COMPLETED":
-        return {"ok": True, "ignored": body.get("event_type")}
-    resource = body.get("resource", {})
-    user_id, _, pack_id = (resource.get("custom_id") or "").partition(":")
-    pack = pp.PACKS.get(pack_id)
-    if not user_id or not pack:
-        return JSONResponse({"error": "custom_id inválido"}, status_code=400)
-    amount_usd = float(resource.get("amount", {}).get("value", pack["usd"]))
-    granted = db.grant_paypal_credits(user_id, resource["id"], amount_usd, pack_id, pack["credits"])
-    return {"ok": True, "granted": granted}
-
-
-# ---------------------------------------------------------------------------
-# Publicação opcional — cada vídeo gerado é privado até o dono decidir publicá-lo.
-# ---------------------------------------------------------------------------
-
-@app.get("/api/my-jobs")
-def my_jobs(user=Depends(auth.require_user)):
-    return {"jobs": db.list_my_jobs(user.id)}
-
-
-@app.post("/api/jobs/{job_id}/public")
-async def set_job_public(job_id: str, request: Request, user=Depends(auth.require_user)):
-    body = await request.json()
-    ok = db.set_job_public(job_id, user.id, bool(body.get("is_public")))
-    if not ok:
-        return JSONResponse({"error": "job não encontrado"}, status_code=404)
-    return {"ok": True}
-
-
-@app.get("/api/gallery")
-def gallery():
-    if not db.enabled():
-        return {"videos": []}
-    return {"videos": db.list_public_gallery()}
+# -------------------------------------------------------------------- páginas
+def _page(name: str) -> FileResponse:
+    return FileResponse(os.path.join(STATIC, name), media_type="text/html",
+                        headers={"Cache-Control": "no-cache"})
 
 
 @app.get("/")
-def index(user=Depends(auth.get_current_user)):
-    if db.enabled() and user is None:
-        return RedirectResponse("/login")
-    return _page("index.html")
+def landing():
+    return _page("landing.html")
 
 
-@app.get("/login")
-def login_page(user=Depends(auth.get_current_user)):
-    if not db.enabled() or user is not None:
-        return RedirectResponse("/")
-    return _page("login.html")
+@app.get("/s/{token}")
+def share_page(token: str, request: Request):
+    """Página pública de um vídeo partilhado, com Open Graph para pré-visualização no WhatsApp/redes."""
+    from studio.api import shared
+    try:
+        v = shared(token)
+    except ApiError:
+        return HTMLResponse(_not_found(), status_code=404)
+    title = html.escape(f"{v['name']} — made with AwlsVelocity")
+    base = config.PUBLIC_BASE_URL or str(request.base_url).rstrip("/")
+    video, thumb = html.escape(v["video_url"] or ""), html.escape(v["thumbnail_url"] or "")
+    return HTMLResponse(f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{title}</title><meta name="theme-color" content="#0b0b0f">
+<meta property="og:title" content="{title}"><meta property="og:type" content="video.other">
+<meta property="og:image" content="{thumb}"><meta property="og:video" content="{video}">
+<meta property="og:url" content="{html.escape(base)}/s/{html.escape(token)}">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css"></head>
+<body class="share-page"><main class="share-wrap">
+<a class="brand-mark" href="/"><img src="/static/brand/logo.svg" alt="" width="28" height="28"><span>AwlsVelocity</span></a>
+<div class="phone-frame"><video src="{video}" poster="{thumb}" controls playsinline autoplay muted loop></video></div>
+<h1 class="share-title">{html.escape(v['name'])}</h1>
+<p class="muted">Edited by AI from a reference video.</p>
+<a class="btn btn-primary btn-lg" href="/signup">Make your own edit</a>
+</main></body></html>""")
 
 
-@app.get("/signup")
-def signup_page(user=Depends(auth.get_current_user)):
-    if not db.enabled() or user is not None:
-        return RedirectResponse("/")
-    return _page("signup.html")
+def _not_found() -> str:
+    return ("<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' "
+            "content='width=device-width,initial-scale=1'><title>Not found — AwlsVelocity</title>"
+            "<link rel='stylesheet' href='/static/app.css'></head><body class='share-page'><main class='share-wrap'>"
+            "<h1 class='share-title'>This page doesn't exist</h1><a class='btn btn-primary' href='/'>Go to AwlsVelocity</a>"
+            "</main></body></html>")
 
 
-@app.get("/conta")
-def conta_page(user=Depends(auth.get_current_user)):
-    if db.enabled() and user is None:
-        return RedirectResponse("/login")
-    return _page("conta.html")
+@app.get("/manifest.webmanifest")
+def manifest():
+    return FileResponse(os.path.join(STATIC, "manifest.webmanifest"), media_type="application/manifest+json")
 
 
-@app.get("/explorar")
-def explorar_page():
-    return _page("explorar.html")
+@app.get("/sw.js")
+def service_worker():
+    # o service worker tem de ser servido da raiz para controlar todas as páginas
+    return FileResponse(os.path.join(STATIC, "sw.js"), media_type="text/javascript",
+                        headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
 
 
-@app.get("/admin")
-def admin_page(user=Depends(auth.get_current_user)):
-    if not db.enabled() or user is None or (user.email or "").lower() != auth.OWNER_EMAIL.lower():
-        return RedirectResponse("/")
-    return _page("admin.html")
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+# SPA: tem de ficar no FIM (o Starlette avalia as rotas por ordem; antes disto apanharia
+# /static, /s/..., /manifest...).
+_APP_ROUTES = ("home", "create", "projects", "edit", "profile", "credits", "admin", "login", "signup", "welcome",
+               "auth/callback")
 
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+@app.get("/{section}")
+@app.get("/{section}/{rest:path}")
+def app_shell(section: str, rest: str = ""):
+    if section in _APP_ROUTES or f"{section}/{rest}" in _APP_ROUTES:
+        return _page("app.html")
+    if section in ("conta", "explorar"):  # rotas da versão anterior
+        return RedirectResponse("/profile" if section == "conta" else "/home")
+    return HTMLResponse(_not_found(), status_code=404)

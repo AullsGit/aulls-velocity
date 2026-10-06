@@ -21,3 +21,7 @@ teste/4_output/*
 !teste/4_output/.gitkeep
 studio/data/
 marketing/demos/
+
+# testes SQL (PGlite)
+tests/sql/node_modules/
+tests/sql/package-lock.json
