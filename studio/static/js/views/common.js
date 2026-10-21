@@ -2,6 +2,24 @@ import { h, icon, fmtDur, fmtDate, statusBadge, menuSheet, confirmSheet, toast, 
 import { t } from "../i18n.js";
 import { api } from "../api.js";
 
+// O resultado tem o formato da referência quando ela é reconstruída (16:9, 1:1...), não sempre 9:16.
+export function videoFormat(resolution) {
+  const m = /^(\d+)x(\d+)$/.exec(resolution || "");
+  if (!m) return { label: "9:16", ratio: "9 / 16", wide: false };
+  const w = +m[1], hh = +m[2];
+  const known = [[9, 16], [16, 9], [1, 1], [4, 5], [5, 4], [4, 3], [3, 4], [21, 9]];
+  const k = known.find(([a, b]) => Math.abs(w / hh - a / b) < 0.02);
+  const gcd = (a, b) => (b ? gcd(b, a % b) : a), g = gcd(w, hh) || 1;
+  return { label: k ? `${k[0]}:${k[1]}` : `${w / g}:${hh / g}`, ratio: `${w} / ${hh}`, wide: w > hh };
+}
+
+export function fitFrame(frame, resolution) {
+  const f = videoFormat(resolution);
+  frame.style.aspectRatio = f.ratio;
+  frame.classList.toggle("wide", f.wide);
+  return f;
+}
+
 export function projectHref(p) {
   if (p.status === "draft" || (p.status === "failed" && !p.has_output)) return `/create/${p.id}`;
   return `/projects/${p.id}`;

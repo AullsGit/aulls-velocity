@@ -372,3 +372,21 @@ progresso, ok=True.
 - Rotação, pista de áudio dos clips do utilizador e transições por máscara não existem no motor.
 - Landing page só em inglês (a app é EN/PT).
 - Lojas Android/iOS: PWA pronta; publicação exige contas de programador.
+
+## Atualização — fidelidade à referência: banco com verdade conhecida + reconstrução do cenário A (2026-10-21)
+
+Detalhe completo, métricas e números em **[docs/FIDELITY.md](FIDELITY.md)**.
+
+- Banco novo (`velocity/evaluate/synth.py`, `fidelity_bench.py`): referências sintéticas em que cada
+  frame é conhecido; mede o analisador e a reprodução em separado, com SSIM "ao acaso" e teto do
+  codec como linhas de base. Linha de base: no cenário A (mesmo material) o SSIM ficava 0.04 acima
+  do acaso, enquanto o motor se auto-avaliava com 0.95–0.98.
+- Correção nº 1: alinhamento às fontes (`matching/source_align.py`) + timeline exata
+  (`matching/reconstruct.py`, `ClipUse.exact`) + caminho exato no renderer. Automático: só entra
+  quando ≥ 50% da referência alinha às fontes. SSIM 0.58–0.61 → 0.947–0.957 (teto 0.968–0.976),
+  fonte e instante certos em 100% dos planos, duração/aspeto/fps da referência.
+- App: resultado e editor mostram o formato real do vídeo (16:9, 1:1…), não sempre 9:16.
+- Testes: 55/55 (6 novos em `tests/test_reconstruct.py`). O teste ponta-a-ponta passou a usar
+  clips de material diferente da referência (com o mesmo material, o motor agora reconstrói).
+- Por resolver (cenário B): formato da referência, movimento, velocidade absoluta, cross-fade e
+  cor — sequência em docs/FIDELITY.md §2.

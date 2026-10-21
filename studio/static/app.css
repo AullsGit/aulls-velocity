@@ -293,6 +293,7 @@ p { margin: 0; }
 /* ------------------------------------------------------- geração / resultado */
 .phone-frame { width: min(100%, 360px); aspect-ratio: 9 / 16; border-radius: 26px; overflow: hidden; margin: 0 auto;
   background: #000; border: 1px solid var(--line-strong); box-shadow: var(--shadow); position: relative; }
+.phone-frame.wide { width: min(100%, 720px); }
 .phone-frame video, .phone-frame img { width: 100%; height: 100%; object-fit: cover; }
 .gen-visual { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden;
   background: radial-gradient(80% 60% at 50% 40%, rgba(198, 255, 61, .18), transparent 70%), #0b0b10; }
@@ -313,10 +314,14 @@ p { margin: 0; }
 /* telemóvel: o vídeo/animação nunca empurra o progresso ou as ações para fora do ecrã */
 .result-layout .phone-frame { width: min(100%, calc(60dvh * 9 / 16)); }
 .result-layout .phone-frame.gen-frame { width: min(100%, calc(34dvh * 9 / 16)); }
+.result-layout .phone-frame.wide { width: 100%; }
 .gen-frame .pct { font-size: clamp(28px, 6dvh, 56px); }
 @media (min-width: 900px) {
   .result-layout { grid-template-columns: 380px 1fr; align-items: start; gap: 36px; }
   .result-layout .phone-frame, .result-layout .phone-frame.gen-frame { width: 100%; }
+  /* resultado horizontal (referência 16:9 reconstruída): vídeo em cima, a toda a largura */
+  .result-layout:has(.phone-frame.wide) { grid-template-columns: minmax(0, 1fr); }
+  .result-layout .phone-frame.wide { width: min(100%, 860px); }
 }
 .actions-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .actions-grid .btn { height: 52px; border-radius: var(--r); }
@@ -330,6 +335,8 @@ p { margin: 0; }
 .ed-top .title { flex: 1; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ed-stage { display: grid; place-items: center; padding: 12px; min-height: 0; overflow: hidden; position: relative; }
 .ed-stage .phone-frame { height: 100%; width: auto; max-height: 62vh; max-width: 100%; }
+.ed-stage .phone-frame.wide { height: auto; width: 100%; max-width: 860px; }
+.phone-frame.wide video { object-fit: contain; }  /* nunca recortar um resultado horizontal */
 .ed-stage .note { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 3; white-space: normal;
   width: max-content; max-width: calc(100% - 24px); height: auto; padding: 5px 12px; text-align: center; line-height: 1.35; }
 .ed-stage .text-preview { position: absolute; left: 0; right: 0; text-align: center; font-family: var(--font-display); font-weight: 700;

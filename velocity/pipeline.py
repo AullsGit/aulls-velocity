@@ -23,7 +23,10 @@ from velocity.evaluate.metrics import compare, compare_plan
 from velocity.evaluate.vibe_fidelity import compare_vibe
 from velocity.matching.engine import MatchWeights, match
 from velocity.matching.extend import extend_reference
+from velocity.matching.fx_plan import plan_effects
 from velocity.matching.plan import build_timeline
+from velocity.matching.reconstruct import output_size, reconstruct_timeline
+from velocity.matching.source_align import align_reference
 from velocity.media.analyzer import analyze_clip
 from velocity.reference.analyzer import analyze_reference
 from velocity.render.compositor import render
@@ -32,6 +35,11 @@ from velocity.render.compositor import render
 # uma 2ª renderização completa para tentar melhorar; acima, o ganho é tipicamente pequeno e não
 # compensa o custo (uma re-renderização demora tanto como a 1ª — ver profiling em docs/STATUS.md).
 GOOD_ENOUGH_FIDELITY = 0.85
+
+# Cenário A (o utilizador tem o MESMO material da referência): se pelo menos esta fração da
+# duração da referência alinhar com confiança às fontes, a edição é RECONSTRUÍDA (frame da fonte,
+# geometria e cor medidos por frame) em vez de imitada — ver matching/source_align.py.
+RECON_MIN_COVERAGE = 0.5
 
 PROFILES = {
     "fast": {"size": (540, 960), "crf": 21, "fx_iters": 0, "sr": False, "preset": "veryfast"},
@@ -65,6 +73,7 @@ class MakeParams:
     no_extend: bool = False
     report: str | None = None
     dna: object | None = None  # EditDNA já analisada (ex.: no passo "análise" da app) — evita repetir a análise
+    reconstruct: str = "auto"  # auto: reconstrói a referência se os clips forem o material dela (cenário A); off: nunca
 
 
 @dataclass
@@ -97,6 +106,15 @@ def _resolve(p: MakeParams) -> MakeParams:
     return p
 
 
+def _recon_fallback(dna, size) -> object:
+    """Timeline mínima só com o que a reconstrução reaplica (efeitos medidos e eventos de fx),
+    para quando TODOS os planos alinharam e não é preciso analisar os clips."""
+    from velocity.schemas.timeline import Timeline
+    effects, _ = plan_effects(dna, dna.cut_frames())
+    return Timeline(fps=dna.fps, width=size[0], height=size[1], n_frames=dna.n_frames, shots=[], effects=effects,
+                    fx_events=dna.fx_events)
+
+
 def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
     """`progress(stage, fraction)` (opcional) recebe as etapas visíveis ao utilizador:
     analyzing_reference, preparing_edit, rendering, applying_effects, finalizing."""
@@ -114,6 +132,7 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
         timings[name] = round(timings.get(name, 0.0) + now - mark[0], 2)
         mark[0] = now
 
+    explicit_size = p.size is not None
     p = _resolve(p)
 
     stage("analyzing_reference", 0.05)
@@ -134,42 +153,74 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
         tlog("Referência NÃO parece um Velocity suportado. Repita com force=True para continuar mesmo assim.")
         return MakeResult(ok=False, rejected=True, detector=det, error="referência não reconhecida como Velocity")
 
-    if p.no_extend:
+    recon = None
+    if p.reconstruct != "off" and p.clips:
+        stage("preparing_edit", 0.08)
+        try:
+            recon = align_reference(p.ref, dna, p.clips, log=tlog)
+        except Exception as e:  # noqa: BLE001 — a reconstrução é um ganho opcional: se falhar, segue o caminho normal
+            tlog(f"alinhamento às fontes falhou ({type(e).__name__}: {e}); a seguir sem reconstrução")
+        if recon is not None and recon.coverage < RECON_MIN_COVERAGE:
+            tlog(f"alinhamento cobre só {recon.coverage:.0%} da referência (< {RECON_MIN_COVERAGE:.0%}): edição por estilo (cenário B)")
+            recon = None
+        lap("source_alignment")
+    if recon is not None:
+        # a reconstrução reproduz a referência tal como é: duração, aspeto e fps dela
+        dna_ext, ext_info = dna, {"acao": "reconstrução: duração da referência (sem extensão)"}
+        if not explicit_size:
+            p.size = output_size(recon.size, p.size)
+        tlog(f"cenário A: reconstrução {sum(s_.ok for s_ in recon.shots)}/{len(recon.shots)} planos, "
+             f"{p.size[0]}x{p.size[1]} @ {recon.fps:g} fps")
+    elif p.no_extend:
         dna_ext, ext_info = dna, {"acao": "desligado (no_extend)"}
     else:
         dna_ext, ext_info = extend_reference(dna, target_min=p.target_min, target_max=p.target_max)
     tlog(f"duração: {ext_info}")
     stage("preparing_edit", 0.15)
+    need_clips = recon is None or bool(p.text) or not all(s_.ok for s_ in recon.shots)
 
     locator = None
-    if p.subject_enhance:
+    clips = []
+    if need_clips and p.subject_enhance:
         from velocity.media.segment import PersonSegmenter
         locator = PersonSegmenter()
         tlog(f"segmentador de pessoas em {locator.device} (primeira análise de cada clip fica em cache)")
-    if locator is None and len(p.clips) > 1:
+    if need_clips and locator is None and len(p.clips) > 1:
         # Cada clip é decodificado/analisado de forma independente e o custo é dominado por
         # chamadas ao ffmpeg (processo à parte, liberta o GIL) — paralelizar aqui dá um ganho
         # real, medido, sem tocar em qualidade. Só quando NÃO há segmentador partilhado
         # (subject_enhance), cuja segurança em threads não está verificada.
         with ThreadPoolExecutor(max_workers=min(len(p.clips), os.cpu_count() or 4)) as ex:
             clips = list(ex.map(lambda c: analyze_clip(c, locator), p.clips))
-    else:
+    elif need_clips:
         clips = [analyze_clip(c, locator) for c in p.clips]
-    tlog(f"material: {len(clips)} clips, {sum(c.duration_s for c in clips):.1f}s no total")
+    if clips:
+        tlog(f"material: {len(clips)} clips, {sum(c.duration_s for c in clips):.1f}s no total")
     lap("clip_analysis")
     stage("preparing_edit", 0.25)
-    if sum(c.duration_s for c in clips) < 0.6 * dna_ext.duration_s:
+    if clips and recon is None and sum(c.duration_s for c in clips) < 0.6 * dna_ext.duration_s:
         tlog(f"  [aviso] material do utilizador ({sum(c.duration_s for c in clips):.1f}s) é escasso para {dna_ext.duration_s:.1f}s de edição — espera-se reutilização visível de trechos.")
 
     w = MatchWeights()
-    ms = match(dna_ext, clips, w)
-    tl, info = build_timeline(dna_ext, clips, ms, size=p.size, music_path=p.music, weights=w, zoom_gain=p.zoom_gain,
-                              fx=not p.no_fx, tone=p.tone, subject_enhance=p.subject_enhance, denoise=p.denoise,
-                              sr=p.sr, texts=p.text)
-    if not p.music and p.audio_ref and dna_ext.audio.has_audio:
+    if clips:
+        ms = match(dna_ext, clips, w)
+        tl, info = build_timeline(dna_ext, clips, ms, size=p.size, music_path=None if recon else p.music, weights=w,
+                                  zoom_gain=p.zoom_gain, fx=not p.no_fx, tone=p.tone, subject_enhance=p.subject_enhance,
+                                  denoise=p.denoise, sr=p.sr, texts=p.text)
+    else:
+        tl, info = _recon_fallback(dna, p.size), {}
+    if recon is not None:
+        # áudio: o da referência (ou a música pedida) a partir do 0 — a estrutura é a da própria referência
+        music = p.music or (p.ref if p.audio_ref and dna.audio.has_audio else None)
+        tl, rinfo = reconstruct_timeline(dna, recon, p.size, fallback=tl, music_path=music)
+        info = {**info, **rinfo, "decisions": rinfo["decisions"] + info.get("decisions", [])}
+        if p.no_fx:
+            tl.effects, tl.fx_events = [], []
+        tlog(f"reconstrução: {rinfo['exact_shots']}/{rinfo['shots']} planos exatos, cobertura {rinfo['coverage']:.0%}")
+    elif not p.music and p.audio_ref and dna_ext.audio.has_audio:
         tl.music_path, tl.music_offset_s = p.ref, 0.0
         info = {**info, "audio": "da referência (loop automático)" if ext_info.get("acao") == "repetida" else "da referência"}
-    tlog(f"matching feito; música: {info}")
+    tlog(f"plano feito; música: {tl.music_path and os.path.basename(tl.music_path)}")
     lap("edit_planning")
 
     os.makedirs(os.path.dirname(os.path.abspath(p.out)), exist_ok=True)
@@ -185,7 +236,9 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
     fxrep = compare_effects(dna_ext, out_dna)
     pre_fidelity = compare(dna_ext, out_dna)["fidelity"]
     fx_iters = p.fx_iters if pre_fidelity < GOOD_ENOUGH_FIDELITY else 0
-    if p.fx_iters and not fx_iters:
+    if recon is not None:
+        fx_iters = 0  # a cor/geometria já são as MEDIDAS: ajustes globais de look só as afastariam
+    if p.fx_iters and not fx_iters and recon is None:
         tlog(f"fidelidade já alta ({pre_fidelity:.3f} >= {GOOD_ENOUGH_FIDELITY}) — a saltar a 2ª renderização (~metade do tempo total)")
     for it in range(fx_iters):
         changes = []
@@ -227,7 +280,7 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
     vibe_rep = compare_vibe(dna_ext, out_dna)
     tlog(f"vibe: score={vibe_rep.get('score')} agressividade={vibe_rep.get('aggressiveness')}")
     rep = compare(dna_ext, out_dna)
-    rep["execution"] = compare_plan([sh.start_frame for sh in tl.shots[1:]], out_dna)
+    rep["execution"] = compare_plan([int(round(sh.start_frame / tl.fps * out_dna.fps)) for sh in tl.shots[1:]], out_dna)
     tlog(f"fidelidade (ref vs output re-analisado): {rep['fidelity']}  componentes={rep['components']}")
     tlog(f"duração final: {out_dna.duration_s:.1f}s")
 
@@ -235,6 +288,10 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
         "detector": {"is_velocity": det.is_velocity, "score": det.score, "subscores": det.subscores, "reasons": det.reasons},
         "extend": ext_info, "retime": info, "eval": rep, "effects_eval": fxrep, "vibe_eval": vibe_rep,
         "decisions": info.get("decisions", []), "fx_scale": tl.fx_scale,
+        "reconstruction": ({"coverage": round(recon.coverage, 3), "fps": recon.fps, "align_s": recon.seconds,
+                            "shots": [{"shot": s_.shot, "ok": s_.ok, "clip": s_.clip, "confidence": s_.confidence,
+                                       "speed": s_.speed, "notes": s_.notes} for s_ in recon.shots]}
+                           if recon is not None else None),
         "post": [tl.post_gamma, tl.post_sat, tl.post_contrast, tl.post_sharp], "duration_s": out_dna.duration_s,
     }
     timings["total"] = round(time.time() - t0, 2)

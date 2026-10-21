@@ -23,6 +23,8 @@ e os vídeos são gerados neste PC (cada conta nova recebe 50 créditos de teste
 
 ```
 velocity/          motor de edição por IA (análise da referência, matching, render, avaliação)
+  matching/source_align.py  cenário A: reconstrói a edição quando os clips são o material da referência
+  evaluate/fidelity_bench.py banco de fidelidade com verdade conhecida (ver docs/FIDELITY.md)
   edit/            editor pós-geração: aplica as edições do utilizador à timeline da IA
   pipeline.py      geração completa (usada pelo worker e pela CLI)
 worker/            worker de processamento (runner.py; handler.py + Dockerfile para o RunPod)

@@ -17,7 +17,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from velocity.schemas.edit_dna import Curve, EffectTrack, FxEvent, Transition
-from velocity.schemas.timeline import ClipUse, TextOverlay, Timeline, TimelineShot
+from velocity.schemas.timeline import ClipUse, ExactTrack, TextOverlay, Timeline, TimelineShot
 
 MAX_TOTAL_S = 90.0
 MIN_SHOT_FRAMES = 3
@@ -102,6 +102,25 @@ def _mean_speed(curve: Curve) -> float:
     return area / span if span > 0 else 1.0
 
 
+def _slice_exact(ex: ExactTrack, es: "EditShot", n: int) -> ExactTrack | None:
+    """Plano reconstruído (cenário A) que o utilizador só cortou ou dividiu: o rasto medido
+    continua válido, basta recortá-lo. O início procura-se no TEMPO DA FONTE (respeita speed
+    ramps). Se o plano passar a precisar de frames que não foram medidos, devolve None (o
+    renderer volta ao modo paramétrico, sem inventar o que falta)."""
+    t = [j / ex.src_fps for j in ex.src_frames]
+    if es.src_start_s is not None:
+        t0 = es.src_start_s
+    elif es.trim_in_s:
+        t0 = t[0] + es.trim_in_s
+    else:
+        t0 = None
+    k = 0 if t0 is None else next((i for i, ti in enumerate(t) if ti >= t0 - 1e-6), None)
+    if k is None or k + n > len(ex.src_frames):
+        return None
+    return ex.model_copy(update={"src_frames": ex.src_frames[k:k + n], "warps": ex.warps[k:k + n],
+                                 "measured": ex.measured[k:k + n] if ex.measured else []})
+
+
 def _new_transition(t_type: str, cut: int, fps: float) -> Transition | None:
     if t_type == "cut":
         return Transition(type="cut", start_frame=cut, end_frame=cut + 1, cut_frame=cut, intensity=0.0)
@@ -154,6 +173,12 @@ def apply_edit(original: Timeline, doc: EditDoc, files: dict[str, str]) -> Timel
             clip.center = (_clamp(es.center[0], 0.0, 1.0), _clamp(es.center[1], 0.0, 1.0))
         if es.flip is not None:
             clip.flip = bool(es.flip)
+        if clip.exact is not None:
+            # trocar o ficheiro, a velocidade ou o enquadramento invalida o que foi medido
+            keep = es.file is None and es.speed is None and es.zoom is None and es.center is None
+            clip.exact = _slice_exact(clip.exact, es, n) if keep else None
+            if clip.exact is not None:
+                clip.src_start_s = clip.exact.src_frames[0] / clip.exact.src_fps
 
         trans = None
         continues_split = j > 0 and es.orig is not None and doc.shots[j - 1].orig == es.orig

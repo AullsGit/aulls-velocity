@@ -3,6 +3,10 @@
 Por plano: decodifica a janela fonte necessária (cover-crop ao tamanho de saída), mapeia
 tempo de saída -> tempo fonte pela curva de velocidade (com mistura de frames em slow-mo),
 aplica zoom/pan por keyframes e, no fim, o efeito da transição centrado no corte.
+
+Planos com `clip.exact` (reconstrução do cenário A, ver matching/source_align.py) seguem outro
+caminho: frame da fonte e transformação afim MEDIDOS para cada frame de saída, frame inteiro da
+fonte decodificado à taxa nativa, e matriz de cor 3x4 medida.
 """
 from __future__ import annotations
 
@@ -14,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 import cv2
 import numpy as np
 
+from velocity.io.frames import iter_range
 from velocity.io.probe import probe
 from velocity.render import effects, fxstack, sr as srmod, textfx
 from velocity.schemas.edit_dna import Curve
@@ -127,11 +132,15 @@ def _enhance(out: np.ndarray, alpha: np.ndarray, clip: ClipUse) -> np.ndarray:
 class _ShotPlan:
     """Tudo o que se calcula de um plano ANTES de decodificar (barato, sem I/O)."""
 
-    __slots__ = ("L", "tau", "rate", "cum", "need", "scale", "max_scale", "cover")
+    __slots__ = ("L", "tau", "rate", "cum", "need", "scale", "max_scale", "cover", "ex_lo", "ex_size")
 
     def __init__(self, shot: TimelineShot, tl: Timeline):
         clip = shot.clip
         self.L = L = shot.n_frames
+        self.ex_lo, self.ex_size = 0, None
+        if clip.exact is not None:
+            self._plan_exact(clip, tl)
+            return
         self.tau = tau = (np.arange(L) + 0.5) / L
         self.rate = rate = _interp(clip.speed, tau)
         self.cum = cum = np.concatenate([[0.0], np.cumsum(rate)[:-1]])  # posição fonte (em frames) do início de cada frame de saída
@@ -142,9 +151,34 @@ class _ShotPlan:
         self.max_scale = float(self.scale.max())
         self.cover = max(1.0, min(self.max_scale, 2.0))  # margem p/ não desfocar em zoom-in (limitada à resolução nativa)
 
+    def _plan_exact(self, clip: ClipUse, tl: Timeline):
+        ex = clip.exact
+        if len(ex.src_frames) != self.L or len(ex.warps) != self.L:
+            raise ValueError("exact: src_frames/warps têm de ter um valor por frame do plano")
+        self.ex_lo = min(ex.src_frames)
+        self.need = max(ex.src_frames) - self.ex_lo + 1
+        info = probe(clip.source_path)
+        # resolução de decode: a que dá >= 1 píxel de fonte por píxel de saída no recorte mais
+        # apertado do plano, nunca acima da nativa (ampliar no decode não acrescenta detalhe)
+        A = np.array(ex.warps, np.float64)
+        per_out_px = np.hypot(A[:, 0], A[:, 3] / info.aspect)  # largura da saída em larguras de fonte
+        wd = min(info.width, tl.width / max(float(per_out_px.min()), 1e-3))
+        wd = max(2, int(math.ceil(wd / 2)) * 2)
+        hd = max(2, int(round(wd / info.aspect / 2)) * 2)
+        self.ex_size = (wd, hd)
+        self.tau = self.rate = self.cum = None
+        self.scale = np.ones(self.L)
+        self.max_scale, self.cover = 1.0, 1.0
+
 
 def _decode_shot(shot: TimelineShot, tl: Timeline, plan: _ShotPlan) -> np.ndarray:
     clip: ClipUse = shot.clip
+    if clip.exact is not None:
+        # só os frames que o plano mostra (com speed 2x ou ramps, metade ou menos da janela)
+        wd, hd = plan.ex_size
+        want = set(clip.exact.src_frames)
+        return {j: f.copy() for j, f in enumerate(iter_range(clip.source_path, wd, clip.exact.src_fps, plan.ex_lo, plan.need,
+                                                                 rgb=True, height=hd), start=plan.ex_lo) if j in want}
     if tl.sr and srmod.available():
         info = probe(clip.source_path)
         a = tl.width / tl.height
@@ -163,6 +197,9 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None,
     """
     clip: ClipUse = shot.clip
     plan = plan or _ShotPlan(shot, tl)
+    if clip.exact is not None:
+        yield from _render_exact(shot, tl, plan, frames if frames is not None else _decode_shot(shot, tl, plan))
+        return
     L, tau, rate, cum, scale = plan.L, plan.tau, plan.rate, plan.cum, plan.scale
     fps = tl.fps
     if frames is None:
@@ -226,6 +263,37 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None,
         yield shot.start_frame + j, np.ascontiguousarray(out)
 
 
+def _render_exact(shot: TimelineShot, tl: Timeline, plan: _ShotPlan, frames: dict):
+    """Cada frame de saída = frame MEDIDO da fonte, pela afim MEDIDA, com a cor MEDIDA.
+    `frames`: frame da fonte -> imagem (só os usados)."""
+    ex = shot.clip.exact
+    if not frames:
+        raise RuntimeError(f"fonte sem frames na janela pedida: {shot.clip.source_path}")
+    H, W = plan.ex_size[1], plan.ex_size[0]
+    have = sorted(frames)
+
+    def norm(w, h):  # índice de píxel -> [0,1] (centro do píxel em (i+0.5)/w)
+        return np.array([[1.0 / w, 0, 0.5 / w], [0, 1.0 / h, 0.5 / h], [0, 0, 1]], np.float64)
+
+    n_out, n_dec_inv = norm(tl.width, tl.height), np.linalg.inv(norm(W, H))
+    cm = np.array(ex.color, np.float32) if ex.color else None
+    for j in range(plan.L):
+        jj = ex.src_frames[j]
+        img = frames.get(jj)
+        if img is None:  # ficheiro mais curto do que o medido: o frame disponível mais próximo
+            img = frames[min(have, key=lambda x: abs(x - jj))]
+        A = np.vstack([np.array(ex.warps[j], np.float64).reshape(2, 3), [0, 0, 1]])
+        M = (n_dec_inv @ A @ n_out)[:2].astype(np.float32)  # píxel de saída -> píxel decodificado
+        up = 1.0 / max(float(np.hypot(M[0, 0], M[1, 0])), 1e-6) > 1.001
+        out = cv2.warpAffine(img, M, (tl.width, tl.height), flags=(cv2.INTER_CUBIC if up else cv2.INTER_LINEAR) | cv2.WARP_INVERSE_MAP,
+                             borderMode=cv2.BORDER_REFLECT101)
+        if cm is not None:
+            out = cv2.transform(out, cm)
+        if shot.clip.flip:
+            out = out[:, ::-1]
+        yield shot.start_frame + j, np.ascontiguousarray(out)
+
+
 class _Writer:
     def __init__(self, path: str, w: int, h: int, fps: float, music: str | None, music_offset: float, duration: float, crf: int,
                  preset: str = "medium", volume: float = 1.0):
@@ -259,6 +327,8 @@ DECODE_MEM_MB = int(os.environ.get("VELOCITY_DECODE_MEM_MB", "512"))
 
 
 def _est_bytes(shot: TimelineShot, tl: Timeline, plan: _ShotPlan) -> int:
+    if plan.ex_size is not None:
+        return len(set(shot.clip.exact.src_frames)) * plan.ex_size[0] * plan.ex_size[1] * 3
     tw, th = _window_size(probe(shot.clip.source_path), tl.width, tl.height, plan.cover)
     return plan.need * tw * th * 3
 

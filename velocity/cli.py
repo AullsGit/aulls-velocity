@@ -37,7 +37,7 @@ def cmd_make(a):
         size=_size(a.size) if a.size else None, crf=a.crf, preset=a.preset, fx_iters=a.fx_iters, sr=a.sr,
         zoom_gain=a.zoom_gain, tone=a.tone, denoise=a.denoise, subject_enhance=a.subject_enhance,
         no_fx=a.no_fx, force=a.force, text=a.text, target_min=a.target_min, target_max=a.target_max,
-        no_extend=a.no_extend, report=a.report,
+        no_extend=a.no_extend, report=a.report, reconstruct=a.reconstruct,
     )
     res = run_make(p, log=lambda m: print(m, flush=True))
     if res.rejected:
@@ -69,6 +69,8 @@ def main(argv=None):
     p.add_argument("--target-min", type=float, default=25.0, help="duração mínima do produto final, em segundos")
     p.add_argument("--target-max", type=float, default=31.0, help="duração máxima do produto final, em segundos")
     p.add_argument("--no-extend", action="store_true", help="desliga o ajuste automático de duração (usa a duração exata da referência)")
+    p.add_argument("--reconstruct", choices=["auto", "off"], default="auto",
+                   help="auto: se os clips forem o material da própria referência, reconstrói a edição frame a frame (cenário A); off: nunca")
     p.add_argument("--report"); p.set_defaults(fn=cmd_make)
     a = ap.parse_args(argv)
     try:

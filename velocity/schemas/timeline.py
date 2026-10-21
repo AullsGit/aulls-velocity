@@ -21,6 +21,23 @@ class ClipUse(BaseModel):
     subj_gamma: float = 1.0  # <1 levanta a luz SÓ do sujeito (máscara)
     bg_gamma: float = 1.0  # >1 escurece SÓ o fundo (clima da referência)
     subj_sharp: float = 0.0  # 0..1 nitidez local no sujeito (unsharp em máscara)
+    # --- reconstrução exata (cenário A: o utilizador tem o MESMO material da referência) ---
+    # Medido frame a frame por matching/source_align.py; quando presente, o renderer ignora
+    # src_start_s/speed/zoom/center/pan (que ficam só como aproximação editável).
+    exact: "ExactTrack | None" = None
+
+
+class ExactTrack(BaseModel):
+    """Um valor por frame de SAÍDA do plano (todas as listas com o mesmo comprimento)."""
+
+    src_fps: float  # taxa nativa a que src_frames está expresso
+    src_frames: list[int]  # frame da fonte mostrado em cada frame de saída (speed ramps, freezes)
+    # transformação afim 2x3 (a,b,c,d,e,f) de coordenadas normalizadas da SAÍDA [0,1]^2 para
+    # coordenadas normalizadas da FONTE [0,1]^2: zoom, pan, rotação, shake — tudo medido
+    warps: list[tuple[float, float, float, float, float, float]]
+    color: list[list[float]] | None = None  # matriz afim RGB 3x4 (fonte -> referência, valores 0..255)
+    confidence: float = 0.0  # correlação mediana do registo (0..1)
+    measured: list[bool] = []  # False = frame extrapolado (dentro de flash/dip/blur da referência)
 
 
 class TimelineShot(BaseModel):
@@ -69,3 +86,6 @@ class Timeline(BaseModel):
     music_offset_s: float = 0.0
     music_volume: float = 1.0  # 0..2 (editor)
     zoom_gain: float = 1.0  # amplifica o zoom do DNA (1 = fiel)
+
+
+ClipUse.model_rebuild()
