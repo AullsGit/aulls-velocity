@@ -757,6 +757,27 @@ def refine_soft_cuts(res: AlignResult, ref_frs: dict[int, _Frame], soft: list[bo
 PROBE_RATE = 1.5  # keyframes/s do índice da sonda (só decide SE o material é o da referência)
 
 
+def _probe_confirm(hit: _Hit, frs: dict, idx: SourceIndex) -> float:
+    """Confirma pelo CONTEÚDO o que o SIFT encontrou: registo fino de uma amostra contra os frames
+    à volta do melhor keyframe. Pontos SIFT podem coincidir em elementos que não são o vídeo
+    (logótipos, texto, interface, molduras) — medido em referências reais do WhatsApp: uma
+    "correspondência" SIFT sem correlação nenhuma no conteúdo fazia pagar o alinhamento todo."""
+    c = idx.clips[hit.clip]
+    k = hit.picks[len(hit.picks) // 2]
+    R = int(math.ceil(c.fps / idx.rate)) + 1
+    best = -1.0
+    for fi, M in hit.cands[k][:2]:
+        jc = int(round(c.kf_t[fi] * c.fps))
+        src = _SrcFrames(c, [(jc - R, jc + R)])
+        for j in range(jc - R, jc + R + 1, 3):
+            g = src.gray_f(j)
+            if g is not None:
+                best = max(best, _refine(frs[k], g, M, iters=3)[1])
+        if best >= SHOT_MIN_CONF:
+            break
+    return best
+
+
 def align_reference(ref_path: str, dna, clip_paths: list[str], log=lambda m: None, probe_first: bool = True) -> AlignResult | None:
     """Alinha todos os planos do DNA às fontes.
 
@@ -776,17 +797,25 @@ def align_reference(ref_path: str, dna, clip_paths: list[str], log=lambda m: Non
     if probe_first and dna.shots:
         pidx = SourceIndex(clip_paths, rate=PROBE_RATE)
         longest = sorted(dna.shots, key=lambda sh: sh.start_frame - sh.end_frame)[:3]
-        found = False
+        found, best_ncc = False, -1.0
         for sh in longest:
             a_, b_ = int(round(sh.start_frame / dna.fps * fps)), int(round(sh.end_frame / dna.fps * fps))
             rgb = decode(ref_path, REF_W, fps, a_, max(1, b_ - a_), rgb=True, height=rh)
-            if len(rgb) and _retrieve(rgb, np.ones(len(rgb), bool), pidx)[0] is not None:
+            if not len(rgb):
+                continue
+            hit, _, frs = _retrieve(rgb, np.ones(len(rgb), bool), pidx)
+            if hit is None:
+                continue
+            ncc = _probe_confirm(hit, frs, pidx)
+            best_ncc = max(best_ncc, ncc)
+            if ncc >= SHOT_MIN_CONF:
                 found = True
                 break
         tm["probe"] = round(time.time() - t0, 2)
         if not found:
-            log(f"alinhamento: os planos mais longos não têm correspondência nos clips — material diferente "
-                f"(cenário B); sonda {tm['probe']:.1f}s")
+            why = (f"pontos SIFT coincidentes, mas o conteúdo não (correlação {best_ncc:.2f} < {SHOT_MIN_CONF})"
+                   if best_ncc > -1 else "nenhuma correspondência")
+            log(f"alinhamento: material diferente da referência (cenário B) — {why}; sonda {tm['probe']:.1f}s")
             return None
 
     cuts, n = refine_cuts(ref_path, fps, [t.cut_frame / dna.fps for t in trans], [t.type == "cut" for t in trans])
