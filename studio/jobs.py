@@ -163,7 +163,8 @@ class JobService:
     def create_render_edit(self, user_id: str, project: dict, doc: dict, idem_key: str | None = None) -> dict:
         from pydantic import ValidationError
         from velocity.edit.timeline_ops import EditDoc, apply_edit
-        from velocity.schemas.timeline import Timeline
+        from velocity.engine import get_engine
+        from velocity.plan import PlanVersionError, errors, load_plan, plan_to_timeline, timeline_to_plan, validate_plan
 
         if idem_key:
             existing = self.store.find_job_by_idempotency(user_id, idem_key)
@@ -177,9 +178,16 @@ class JobService:
         try:
             edit = EditDoc.model_validate(doc)
             files = {f["id"]: f"uploads/{f['path']}" for f in project.get("files") or [] if f.get("uploaded")}
-            edited = apply_edit(Timeline.model_validate(project["timeline"]), edit, files)
+            original = load_plan(project["timeline"])
+            edited = apply_edit(plan_to_timeline(original), edit, files)
+            plan = timeline_to_plan(edited, meta={**original.meta, "edited": True})
+        except PlanVersionError as e:
+            raise ApiError(409, "project_too_new", f"This project was saved by a newer version: {e}"[:300])
         except (ValidationError, ValueError) as e:
             raise ApiError(400, "invalid_edit", f"This edit can't be applied: {e}"[:300])
+        issues = errors(validate_plan(plan) + get_engine().validate(plan))
+        if issues:  # recusado ANTES de reservar créditos ou de ocupar um worker
+            raise ApiError(400, "invalid_edit", "This edit can't be rendered: " + "; ".join(i.message for i in issues[:2]))
         self._check_capacity()
         cost = int(self.store.get_config().get("credits_per_edit_export") or 0)
         profile = (project.get("settings") or {}).get("profile", "standard")
@@ -193,7 +201,8 @@ class JobService:
             raise ApiError(410, "sources_expired", "Some original clips for this project are no longer available.")
         payload = {
             "kind": "render_edit", "job_id": job["id"],
-            "timeline": json.loads(edited.model_dump_json()),
+            "plan": json.loads(plan.model_dump_json()),
+            "timeline": json.loads(edited.model_dump_json()),  # worker anterior ao Plano (deploys desfasados)
             "inputs": {"files": {k: self._item(by_key[k]) for k in keys}},
             "params": {"profile": profile}, "limits": self._limits(),
             "outputs": {"video": self._target("outputs", out_path), "thumbnail": self._target("thumbs", thumb_path)},
@@ -302,12 +311,13 @@ class JobService:
             old = (project.get("output_path"), project.get("thumbnail_path"))
             settings = dict(project.get("settings") or {})
             if job["kind"] == "generate":
-                settings["ai_timeline"] = out.get("timeline")  # para "voltar à versão da IA" no editor
+                settings["ai_timeline"] = out.get("plan") or out.get("timeline")  # "voltar à versão da IA" no editor
                 settings.pop("edit_doc", None)
             self.store.update_project(project["id"], {
                 "status": "completed", "output_path": out_path, "thumbnail_path": thumb_path,
                 "duration_s": out.get("duration_s"), "resolution": out.get("resolution"),
-                "timeline": out.get("timeline"), "last_job_id": job["id"], "settings": settings,
+                # coluna `timeline`: guarda o Plano v1 (ou a Timeline antiga de um worker anterior)
+                "timeline": out.get("plan") or out.get("timeline"), "last_job_id": job["id"], "settings": settings,
             })
             try:  # o Supabase Free tem 1 GB: o vídeo anterior do mesmo projeto já não é preciso
                 if old[0] and old[0] != out_path:

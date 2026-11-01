@@ -29,7 +29,8 @@ from velocity.matching.reconstruct import output_size, reconstruct_timeline
 from velocity.matching.source_align import align_reference
 from velocity.media.analyzer import analyze_clip
 from velocity.reference.analyzer import analyze_reference
-from velocity.render.compositor import render
+from velocity.engine import PlanRejected, get_engine
+from velocity.plan import timeline_to_plan, validate_plan
 
 # Abaixo deste valor de fidelidade (medida por `evaluate.metrics.compare`), vale a pena pagar
 # uma 2ª renderização completa para tentar melhorar; acima, o ganho é tipicamente pequeno e não
@@ -87,8 +88,10 @@ class MakeResult:
     vibe_score: float | None = None
     report: dict = field(default_factory=dict)
     error: str | None = None
-    timeline: object | None = None  # Timeline final (editável depois, sem nova análise)
+    timeline: object | None = None  # Timeline final do compositor (compatibilidade; o contrato é `plan`)
+    plan: object | None = None  # Plano v1 executado (velocity/plan): editável depois, sem nova análise
     timings: dict = field(default_factory=dict)  # segundos por etapa
+    resources: dict = field(default_factory=dict)  # por etapa: pico de RAM, CPU média, pico de VRAM (velocity/runtime_metrics.py)
 
 
 def _resolve(p: MakeParams) -> MakeParams:
@@ -118,6 +121,22 @@ def _recon_fallback(dna, size) -> object:
 def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
     """`progress(stage, fraction)` (opcional) recebe as etapas visíveis ao utilizador:
     analyzing_reference, preparing_edit, rendering, applying_effects, finalizing."""
+    from velocity.runtime_metrics import ResourceMeter
+    meter = ResourceMeter().start()
+    try:
+        res = _run_make(p, log, progress, meter)
+    finally:
+        resources = meter.stop()
+    res.resources = resources
+    if res.report is not None and res.ok:
+        res.report["resources"] = resources
+        if p.report:
+            import json
+            json.dump(res.report, open(p.report, "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
+    return res
+
+
+def _run_make(p: MakeParams, log, progress, meter) -> MakeResult:
     t0 = time.time()
     tlog = lambda m: log(f"[{time.time() - t0:5.1f}s] {m}")  # noqa: E731
     timings: dict[str, float] = {}
@@ -131,6 +150,7 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
         now = time.time()
         timings[name] = round(timings.get(name, 0.0) + now - mark[0], 2)
         mark[0] = now
+        meter.lap(name)
 
     explicit_size = p.size is not None
     p = _resolve(p)
@@ -225,10 +245,29 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
 
     os.makedirs(os.path.dirname(os.path.abspath(p.out)), exist_ok=True)
     masks = {c.path: c.masks for c in clips if c.masks is not None}
+    engine = get_engine()
+    meta = {"created_by": "velocity.pipeline", "scenario": "A" if recon is not None else "B",
+            "reference": os.path.basename(p.ref), "dna_schema": getattr(dna, "schema_version", None)}
+
+    def make_plan():
+        """A inteligência entrega um PLANO; o motor só recebe planos que passam na validação."""
+        plan_ = timeline_to_plan(tl, meta=meta)
+        issues = validate_plan(plan_) + engine.validate(plan_)
+        for i_ in issues:
+            tlog(f"plano: {i_}")
+        if any(i_.level == "error" for i_ in issues):
+            raise PlanRejected([i_ for i_ in issues if i_.level == "error"])
+        return plan_
+
+    try:
+        plan = make_plan()
+    except PlanRejected as e:
+        tlog(f"plano recusado antes do render: {e}")
+        return MakeResult(ok=False, detector=det, error=f"plano inválido: {e}", timings=timings)
     stage("rendering", 0.3)
-    render(tl, p.out, crf=p.crf, masks=masks, preset=p.preset,
-           progress=lambda i, n: stage("rendering", 0.3 + 0.5 * i / n))
-    tlog(f"render concluído -> {p.out}")
+    engine.render(plan, p.out, crf=p.crf, masks=masks, preset=p.preset,
+                  progress=lambda i, n: stage("rendering", 0.3 + 0.5 * i / n))
+    tlog(f"render concluído ({engine.name}) -> {p.out}")
     lap("render")
 
     stage("applying_effects", 0.82)
@@ -269,8 +308,9 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
         if not changes:
             break
         tlog(f"protetor de fidelidade (iteração {it + 1}): {', '.join(changes)}; a re-renderizar")
-        render(tl, p.out, crf=p.crf, masks=masks, preset=p.preset,
-               progress=lambda i, n: stage("applying_effects", 0.82 + 0.12 * i / n))
+        plan = make_plan()
+        engine.render(plan, p.out, crf=p.crf, masks=masks, preset=p.preset,
+                      progress=lambda i, n: stage("applying_effects", 0.82 + 0.12 * i / n))
         out_dna = analyze_reference(p.out, with_audio=bool(tl.music_path), with_text=False)
         fxrep = compare_effects(dna_ext, out_dna)
     lap("fidelity_check")
@@ -293,6 +333,7 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
                                        "speed": s_.speed, "notes": s_.notes} for s_ in recon.shots]}
                            if recon is not None else None),
         "post": [tl.post_gamma, tl.post_sat, tl.post_contrast, tl.post_sharp], "duration_s": out_dna.duration_s,
+        "plan": {"version": plan.plan_version, "engine": engine.name, "items": len(plan.video_items())},
     }
     timings["total"] = round(time.time() - t0, 2)
     full_report["timings_s"] = timings
@@ -302,4 +343,4 @@ def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
         json.dump(full_report, open(p.report, "w", encoding="utf-8"), ensure_ascii=False, indent=1, default=str)
     return MakeResult(ok=True, out_path=p.out, detector=det, duration_s=out_dna.duration_s,
                       fidelity=rep["fidelity"], vibe_score=vibe_rep.get("score"), report=full_report,
-                      timeline=tl, timings=timings)
+                      timeline=tl, plan=plan, timings=timings)

@@ -27,3 +27,4 @@ marketing/demos/
 tests/sql/node_modules/
 tests/sql/package-lock.json
 studio/static/_test/
+bench/real/

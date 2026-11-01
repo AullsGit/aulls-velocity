@@ -10,7 +10,8 @@ Contrato (dict JSON, sem dependências do backend):
             | {"files": {key: Item}}                                         # render_edit
     "params": {...}, "limits": {...},
     "reference_dna": dict | None,   # análise já feita (generate)
-    "timeline": dict | None,        # render_edit (caminhos = chaves de `files`)
+    "plan": dict | None,            # render_edit: Plano v1 (velocity/plan; uris = chaves de `files`)
+    "timeline": dict | None,        # render_edit: formato antigo (API anterior ao Plano) — aceite
     "outputs": {"video": Target, "thumbnail": Target},
   }
   Item   = {"key": str, "name": str, "url": str, "local_path": str | None}
@@ -257,6 +258,7 @@ def _generate(payload: dict, tmp: str, progress) -> dict:
         s.clip.source_path = key_of.get(s.clip.source_path, s.clip.source_path)
     if tl.music_path:
         tl.music_path = key_of.get(tl.music_path, tl.music_path)
+    plan = res.plan.map_uris(lambda u: key_of.get(u, u))
 
     progress("finalizing", 0.96)
     thumb = _thumbnail(out, tmp)
@@ -264,56 +266,65 @@ def _generate(payload: dict, tmp: str, progress) -> dict:
     _put(payload["outputs"]["thumbnail"], thumb, "image/jpeg")
     progress("finalizing", 1.0)
     return {
-        "timeline": json.loads(tl.model_dump_json()),
+        "plan": json.loads(plan.model_dump_json()),
+        "timeline": json.loads(tl.model_dump_json()),  # para uma API anterior ao Plano (deploys desfasados)
         "duration_s": round(res.duration_s or 0.0, 2),
         "resolution": f"{tl.width}x{tl.height}",
         "fidelity": res.fidelity,
         "detector": {"score": res.detector.score, "is_velocity": res.detector.is_velocity} if res.detector else None,
-        "metrics": {"timings_s": res.timings, "fidelity": res.fidelity, "vibe": res.vibe_score,
+        "metrics": {"timings_s": res.timings, "resources": res.resources, "fidelity": res.fidelity, "vibe": res.vibe_score,
                     "sources": len(sources), "log_tail": log_lines[-8:]},
     }
 
 
 # ------------------------------------------------------------- re-render do editor
 def _render_edit(payload: dict, tmp: str, progress) -> dict:
-    from velocity.render.compositor import render
+    from velocity.engine import PlanRejected, get_engine
     from velocity.pipeline import PROFILES
-    from velocity.schemas.timeline import Timeline
+    from velocity.plan import check_media, errors, load_plan, plan_to_timeline, validate_plan
 
     lim = payload.get("limits", {})
     max_bytes = int(lim.get("max_upload_mb", 50)) * 1024 * 1024
-    tl = Timeline.model_validate(payload["timeline"])
+    doc = payload.get("plan") or payload["timeline"]
+    plan = load_plan(doc)
+    engine = get_engine()
+    issues = errors(validate_plan(plan) + engine.validate(plan))
+    if issues:
+        raise UserError("invalid_plan", "; ".join(str(i) for i in issues[:3]))
     files = payload["inputs"]["files"]
     progress("preparing_edit", 0.05)
     local: dict[str, str] = {}
-    needed = {s.clip.source_path for s in tl.shots} | ({tl.music_path} if tl.music_path else set())
-    for key in needed:
+    for key in {s.uri for s in plan.sources.values()}:
         if key not in files:
             raise UserError("missing_source", "um ficheiro-fonte do projeto já não está disponível")
         p = _fetch(files[key], tmp, max_bytes)
         if os.path.splitext(p)[1].lower() in IMAGE_EXT:
             p = _still_to_clip(p, tmp)
         local[key] = p
-    edited = tl.model_copy(deep=True)
-    for s in edited.shots:
-        s.clip.source_path = local[s.clip.source_path]
-    if edited.music_path:
-        edited.music_path = local[edited.music_path]
+    edited = plan.map_uris(lambda u: local[u])
+    media = errors(check_media(edited))
+    if media:
+        raise UserError("invalid_media", "; ".join(str(i) for i in media[:3]))
 
     prof = PROFILES.get(payload.get("params", {}).get("profile", "standard"), PROFILES["standard"])
     out = os.path.join(tmp, "out.mp4")
     t = time.time()
     progress("rendering", 0.1)
-    render(edited, out, crf=prof["crf"], preset=prof["preset"],
-           progress=lambda i, n: progress("rendering", 0.1 + 0.8 * i / n))
+    try:
+        engine.render(edited, out, crf=prof["crf"], preset=prof["preset"],
+                      progress=lambda i, n: progress("rendering", 0.1 + 0.8 * i / n))
+    except PlanRejected as e:
+        raise UserError("invalid_plan", str(e)[:300])
     render_s = round(time.time() - t, 2)
     progress("finalizing", 0.92)
     thumb = _thumbnail(out, tmp)
     _put(payload["outputs"]["video"], out, "video/mp4")
     _put(payload["outputs"]["thumbnail"], thumb, "image/jpeg")
+    o = plan.output
     return {
-        "timeline": payload["timeline"],
-        "duration_s": round(tl.n_frames / tl.fps, 2),
-        "resolution": f"{tl.width}x{tl.height}",
-        "metrics": {"timings_s": {"render": render_s}},
+        "plan": json.loads(plan.model_dump_json()),
+        "timeline": json.loads(plan_to_timeline(plan).model_dump_json()),
+        "duration_s": round(o.duration_frames / o.fps, 2),
+        "resolution": f"{o.width}x{o.height}",
+        "metrics": {"timings_s": {"render": render_s}, "engine": engine.name},
     }

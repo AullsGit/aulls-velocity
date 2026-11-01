@@ -433,11 +433,11 @@ async def generate(project_id: str, request: Request, user: User = Depends(requi
 @router.get("/projects/{project_id}/editor")
 def editor_state(project_id: str, user: User = Depends(require_user)):
     from velocity.edit.timeline_ops import doc_from_timeline
-    from velocity.schemas.timeline import Timeline
+    from velocity.plan import load_plan, plan_to_timeline
     p = _own_project(project_id, user)
     if not p.get("timeline"):
         raise ApiError(400, "nothing_to_edit", "Generate a video before editing it.")
-    tl = Timeline.model_validate(p["timeline"])
+    tl = plan_to_timeline(load_plan(p["timeline"]))
     key_to_file = {f"uploads/{f['path']}": f["id"] for f in p.get("files") or []}
     doc = doc_from_timeline(tl)
     shots = [{"file": key_to_file.get(s.clip.source_path), "src_start_s": round(s.clip.src_start_s, 3),
@@ -445,7 +445,7 @@ def editor_state(project_id: str, user: User = Depends(require_user)):
     ai = (p.get("settings") or {}).get("ai_timeline")
     ai_doc = None
     if ai:
-        ai_tl = Timeline.model_validate(ai)
+        ai_tl = plan_to_timeline(load_plan(ai))
         ai_doc = {"doc": doc_from_timeline(ai_tl).model_dump(),
                   "shots": [{"file": key_to_file.get(s.clip.source_path), "src_start_s": round(s.clip.src_start_s, 3),
                              "transition": s.transition_in.type if s.transition_in else None} for s in ai_tl.shots]}
