@@ -66,6 +66,10 @@ class TextOverlay(BaseModel):
     width: float  # largura máxima (fração da largura)
     height: float  # altura da fonte (fração da altura)
     entry: str = "none"  # pop | fade | none
+    style: str = "outline"  # outline (branco com contorno) | box (legenda: texto sobre caixa)
+    color: tuple[int, int, int] | None = None  # cor do texto (None = a do estilo)
+    box_color: tuple[int, int, int] = (0, 0, 0)
+    box_alpha: float = 0.65
 
 
 class Timeline(BaseModel):

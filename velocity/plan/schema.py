@@ -136,6 +136,10 @@ class TextItem(BaseModel):
     width: float
     height: float
     entry: Literal["pop", "fade", "none"] = "none"
+    style: Literal["outline", "box"] = "outline"  # box = legenda (texto sobre caixa semitransparente)
+    color: tuple[int, int, int] | None = None  # RGB do texto; None = a do estilo
+    box_color: tuple[int, int, int] = (0, 0, 0)
+    box_alpha: float = Field(0.65, ge=0, le=1)
     provenance: Provenance = Field(default_factory=lambda: Provenance(by="reference"))
 
 

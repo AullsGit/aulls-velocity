@@ -465,6 +465,69 @@
      "title": "Entry",
      "type": "string"
     },
+    "style": {
+     "default": "outline",
+     "enum": [
+      "outline",
+      "box"
+     ],
+     "title": "Style",
+     "type": "string"
+    },
+    "color": {
+     "anyOf": [
+      {
+       "maxItems": 3,
+       "minItems": 3,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "type": "integer"
+        }
+       ],
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Color"
+    },
+    "box_color": {
+     "default": [
+      0,
+      0,
+      0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "prefixItems": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "integer"
+      },
+      {
+       "type": "integer"
+      }
+     ],
+     "title": "Box Color",
+     "type": "array"
+    },
+    "box_alpha": {
+     "default": 0.65,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Box Alpha",
+     "type": "number"
+    },
     "provenance": {
      "$ref": "#/$defs/Provenance"
     }

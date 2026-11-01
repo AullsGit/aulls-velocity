@@ -55,7 +55,8 @@ def timeline_to_plan(tl: Timeline, provenance: list[Provenance] | None = None, m
     if tl.texts:
         tracks.append(Track(id="T1", kind="text", items=[TextItem(
             id=f"t{i}", text=t.text, at=t.start_frame, duration=t.end_frame - t.start_frame, x=t.x, y=t.y,
-            width=t.width, height=t.height, entry=t.entry if t.entry in ("pop", "fade", "none") else "none")
+            width=t.width, height=t.height, entry=t.entry if t.entry in ("pop", "fade", "none") else "none",
+            style=t.style, color=t.color, box_color=t.box_color, box_alpha=t.box_alpha)
             for i, t in enumerate(tl.texts)]))
     return Plan(
         output=Output(width=tl.width, height=tl.height, fps=tl.fps, duration_frames=tl.n_frames),
@@ -86,7 +87,8 @@ def plan_to_timeline(plan: Plan) -> Timeline:
                                   transition_in=it.transition_in))
     audio = [it for t in plan.track("audio") for it in t.items]
     texts = [TextOverlay(text=t.text, start_frame=t.at, end_frame=t.at + t.duration, x=t.x, y=t.y, width=t.width,
-                         height=t.height, entry=t.entry) for tr in plan.track("text") for t in tr.items]
+                         height=t.height, entry=t.entry, style=t.style, color=t.color, box_color=t.box_color,
+                         box_alpha=t.box_alpha) for tr in plan.track("text") for t in tr.items]
     music = audio[0] if audio else None
     lk = plan.look
     return Timeline(
