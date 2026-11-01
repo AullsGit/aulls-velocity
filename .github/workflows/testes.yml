@@ -17,8 +17,15 @@ jobs:
           python-version: "3.11"
           cache: pip
       - name: ffmpeg e fontes (como no Dockerfile)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core
+        timeout-minutes: 8
+        env:
+          DEBIAN_FRONTEND: noninteractive  # sem isto o apt pode ficar à espera de uma pergunta (1.ª execução parou 20 min)
+        run: |
+          sudo -E apt-get update -q
+          sudo -E apt-get install -y -q --no-install-recommends ffmpeg fonts-dejavu-core
+          ffmpeg -hide_banner -version | head -1
       - name: dependências (torch CPU, como no Dockerfile)
+        timeout-minutes: 12
         run: |
           pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
           pip install -r requirements-cloud.txt pytest pyflakes
@@ -27,6 +34,7 @@ jobs:
       - name: plano publicado = plano do código
         run: python -m velocity.plan --schema /tmp/plan.schema.json && diff -q /tmp/plan.schema.json docs/plan.schema.json
       - name: pytest (inclui ponta-a-ponta com o motor real)
+        timeout-minutes: 15
         run: python -m pytest -q
 
   sql:
