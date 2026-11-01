@@ -38,7 +38,8 @@ def timeline_to_plan(tl: Timeline, provenance: list[Provenance] | None = None, m
             prov = Provenance(by="matcher")
         video.append(VideoItem(
             id=f"v{i}", source=sid(c.source_path, "video"), at=sh.start_frame, duration=sh.n_frames,
-            time=TimeMap(src_start_s=c.src_start_s, speed=c.speed, src_fps=ex.src_fps if ex else None,
+            time=TimeMap(src_start_s=c.src_start_s, speed=c.speed, slowmo="hold" if c.slowmo == "hold" else "blend",
+                         src_fps=ex.src_fps if ex else None,
                          src_frames=list(ex.src_frames) if ex else None),
             transform=Transform(zoom=c.zoom, center=c.center, pan=c.pan, flip=c.flip,
                                 warps=list(ex.warps) if ex else None),
@@ -77,6 +78,7 @@ def plan_to_timeline(plan: Plan) -> Timeline:
                                warps=list(it.transform.warps), color=it.color.matrix,
                                confidence=it.provenance.confidence or 0.0, measured=list(it.measured or []))
         clip = ClipUse(source_path=plan.sources[it.source].uri, src_start_s=it.time.src_start_s, speed=it.time.speed,
+                       slowmo=it.time.slowmo,
                        zoom=it.transform.zoom, center=it.transform.center, pan=it.transform.pan, flip=it.transform.flip,
                        tone_gamma=it.color.gamma, tone_sat=it.color.saturation, subj_gamma=it.color.subject_gamma,
                        bg_gamma=it.color.background_gamma, subj_sharp=it.color.subject_sharpen, exact=exact)

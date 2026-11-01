@@ -279,7 +279,7 @@ def _generate(payload: dict, tmp: str, progress) -> dict:
 
 # ------------------------------------------------------------- re-render do editor
 def _render_edit(payload: dict, tmp: str, progress) -> dict:
-    from velocity.engine import PlanRejected, get_engine
+    from velocity.engine import PlanRejected, choose_engine
     from velocity.pipeline import PROFILES
     from velocity.plan import check_media, errors, load_plan, plan_to_timeline, validate_plan
 
@@ -287,7 +287,7 @@ def _render_edit(payload: dict, tmp: str, progress) -> dict:
     max_bytes = int(lim.get("max_upload_mb", 50)) * 1024 * 1024
     doc = payload.get("plan") or payload["timeline"]
     plan = load_plan(doc)
-    engine = get_engine()
+    engine = choose_engine(plan)
     issues = errors(validate_plan(plan) + engine.validate(plan))
     if issues:
         raise UserError("invalid_plan", "; ".join(str(i) for i in issues[:3]))

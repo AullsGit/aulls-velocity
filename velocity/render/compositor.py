@@ -233,7 +233,7 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None,
         i0 = int(math.floor(pos))
         a = pos - i0
         img = frames[i0]
-        if rate[j] < 0.95 and a > 0.05 and i0 + 1 < n_src:  # slow-mo: mistura de frames
+        if clip.slowmo != "hold" and rate[j] < 0.95 and a > 0.05 and i0 + 1 < n_src:  # slow-mo: mistura de frames
             img = cv2.addWeighted(frames[i0], 1 - a, frames[i0 + 1], a, 0)
         # região de recorte no frame decodificado, com tamanho (W/scale, H/scale) e centro (cx,cy)+pan
         rw, rh = W / scale[j], H / scale[j]

@@ -64,6 +64,8 @@ class TimeMap(BaseModel):
     speed: Curve = Field(default_factory=lambda: Curve(t=[0.0, 1.0], v=[1.0, 1.0]))
     src_fps: float | None = None
     src_frames: list[int] | None = None
+    # abaixo de 1x: "blend" mistura os 2 frames vizinhos (suave); "hold" repete frames reais da fonte
+    slowmo: Literal["blend", "hold"] = "blend"
 
     @property
     def per_frame(self) -> bool:

@@ -73,6 +73,7 @@ def cases(d: str) -> list[tuple[str, Plan, list[tuple[int, int]], str]]:
 def run(engine_name: str | None = None, d: str | None = None) -> dict:
     eng = get_engine(engine_name)
     d = d or tempfile.mkdtemp(prefix="t1_")
+    os.makedirs(d, exist_ok=True)
     report = {"engine": eng.name, "cases": {}}
     for name, plan, expected, rule in cases(d):
         outp = os.path.join(d, f"out_{name}.mp4")

@@ -29,7 +29,7 @@ from velocity.matching.reconstruct import output_size, reconstruct_timeline
 from velocity.matching.source_align import align_reference
 from velocity.media.analyzer import analyze_clip
 from velocity.reference.analyzer import analyze_reference
-from velocity.engine import PlanRejected, get_engine
+from velocity.engine import PlanRejected, choose_engine
 from velocity.plan import timeline_to_plan, validate_plan
 
 # Abaixo deste valor de fidelidade (medida por `evaluate.metrics.compare`), vale a pena pagar
@@ -245,13 +245,15 @@ def _run_make(p: MakeParams, log, progress, meter) -> MakeResult:
 
     os.makedirs(os.path.dirname(os.path.abspath(p.out)), exist_ok=True)
     masks = {c.path: c.masks for c in clips if c.masks is not None}
-    engine = get_engine()
+    engine = None
     meta = {"created_by": "velocity.pipeline", "scenario": "A" if recon is not None else "B",
             "reference": os.path.basename(p.ref), "dna_schema": getattr(dna, "schema_version", None)}
 
     def make_plan():
         """A inteligência entrega um PLANO; o motor só recebe planos que passam na validação."""
+        nonlocal engine
         plan_ = timeline_to_plan(tl, meta=meta)
+        engine = choose_engine(plan_)  # o motor que executa este plano (pelas capacidades declaradas)
         issues = validate_plan(plan_) + engine.validate(plan_)
         for i_ in issues:
             tlog(f"plano: {i_}")

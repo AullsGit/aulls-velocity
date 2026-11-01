@@ -518,6 +518,15 @@
      ],
      "default": null,
      "title": "Src Frames"
+    },
+    "slowmo": {
+     "default": "blend",
+     "enum": [
+      "blend",
+      "hold"
+     ],
+     "title": "Slowmo",
+     "type": "string"
     }
    },
    "required": [

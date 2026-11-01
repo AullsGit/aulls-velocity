@@ -163,7 +163,7 @@ class JobService:
     def create_render_edit(self, user_id: str, project: dict, doc: dict, idem_key: str | None = None) -> dict:
         from pydantic import ValidationError
         from velocity.edit.timeline_ops import EditDoc, apply_edit
-        from velocity.engine import get_engine
+        from velocity.engine import choose_engine
         from velocity.plan import PlanVersionError, errors, load_plan, plan_to_timeline, timeline_to_plan, validate_plan
 
         if idem_key:
@@ -185,7 +185,7 @@ class JobService:
             raise ApiError(409, "project_too_new", f"This project was saved by a newer version: {e}"[:300])
         except (ValidationError, ValueError) as e:
             raise ApiError(400, "invalid_edit", f"This edit can't be applied: {e}"[:300])
-        issues = errors(validate_plan(plan) + get_engine().validate(plan))
+        issues = errors(validate_plan(plan) + choose_engine(plan).validate(plan))
         if issues:  # recusado ANTES de reservar créditos ou de ocupar um worker
             raise ApiError(400, "invalid_edit", "This edit can't be rendered: " + "; ".join(i.message for i in issues[:2]))
         self._check_capacity()

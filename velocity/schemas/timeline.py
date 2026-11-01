@@ -16,6 +16,9 @@ class ClipUse(BaseModel):
     center: tuple[float, float] = (0.5, 0.5)  # ponto de interesse (fração do frame fonte)
     pan: tuple[float, float] = (0.0, 0.0)  # deslocamento total da janela de corte (fração da largura/altura)
     flip: bool = False
+    # câmara lenta paramétrica: "blend" mistura os 2 frames vizinhos (mais suave, o comportamento
+    # de sempre); "hold" repete o frame (cada frame de saída é um frame real da fonte)
+    slowmo: str = "blend"
     tone_gamma: float = 1.0  # <1 clareia, >1 escurece (aproxima o brilho do plano da referência)
     tone_sat: float = 1.0  # multiplicador de saturação
     subj_gamma: float = 1.0  # <1 levanta a luz SÓ do sujeito (máscara)
