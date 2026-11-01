@@ -50,7 +50,7 @@ def _approx_params(warps: list, src_aspect: float, out_aspect: float) -> tuple[C
     A = np.array(warps, np.float64)
     cover_w = min(1.0, out_aspect / src_aspect)  # largura do enquadramento "cover" (fração da fonte)
     widths = np.maximum(np.abs(A[:, 0]), 1e-4)
-    z = np.log(np.maximum(cover_w / widths, 1.0))
+    z = np.clip(np.log(np.maximum(cover_w / widths, 1.0)), 0.0, 3.0)  # limites do plano (validate_plan)
     t = np.linspace(0, 1, len(z))
     sel = np.unique(np.linspace(0, len(z) - 1, min(len(z), 9)).astype(int))
     cx = A[:, 0] * 0.5 + A[:, 1] * 0.5 + A[:, 2]
@@ -99,8 +99,11 @@ def reconstruct_timeline(dna: EditDNA, al: AlignResult, size: tuple[int, int], f
                      for w_ in sa.warps]
             zoom, center, pan = _approx_params(warps, src_aspect, out_aspect)
             sp = float(sa.speed or 1.0)
+            # a velocidade paramétrica é só a aproximação editável (o rasto medido manda): um plano
+            # congelado ou ao contrário mede-se 0 ou negativo, que o modo paramétrico não exprime
+            sp_param = min(max(sp, 0.05), 16.0)
             clip = ClipUse(source_path=path, src_start_s=sa.src_frames[0] / al.clip_fps[sa.clip],
-                           speed=Curve(t=[0.0, 1.0], v=[sp, sp]), zoom=zoom, center=center, pan=pan,
+                           speed=Curve(t=[0.0, 1.0], v=[sp_param, sp_param]), zoom=zoom, center=center, pan=pan,
                            exact=ExactTrack(src_fps=al.clip_fps[sa.clip], src_frames=list(sa.src_frames), warps=warps,
                                             color=sa.color, confidence=sa.confidence, measured=list(sa.measured)))
             exact_ranges.append((a, b))

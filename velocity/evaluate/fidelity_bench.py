@@ -30,7 +30,7 @@ import cv2
 import numpy as np
 
 from velocity.evaluate import synth
-from velocity.evaluate.synth import GTEdit, GTShot, GTTransition, Source, SourceSpec
+from velocity.evaluate.synth import FileSpec, GTEdit, GTShot, GTTransition, SourceSpec, make_source
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SYNTH_DIR = os.path.join(ROOT, "bench", "synth")
@@ -121,7 +121,64 @@ def case_r3() -> tuple[GTEdit, list[SourceSpec], list[SourceSpec]]:
                   notes="fontes 9:16 recortadas a 1:1"), A, B
 
 
-CASES = {"r1": case_r1, "r2": case_r2, "r3": case_r3}
+REAL_SOURCES = os.path.join(ROOT, "bench", "real", "sources.json")
+
+
+def _real(group: str) -> list[FileSpec]:
+    """Clips reais locais (NUNCA versionados: material de terceiros). bench/real/sources.json:
+    {"bmw": ["C:/.../clip.mp4", ...], "futebol": [...]}"""
+    if not os.path.exists(REAL_SOURCES):
+        raise FileNotFoundError(f"casos com filmagem real precisam de {REAL_SOURCES}")
+    with open(REAL_SOURCES, encoding="utf-8") as fh:
+        return [FileSpec(p) for p in json.load(fh)[group]]
+
+
+def case_r4() -> tuple[GTEdit, list, list]:
+    """Filmagem REAL (3 clips de telemóvel a ~26,08 fps, VFR) -> edição Velocity 9:16 a 30 fps,
+    120 BPM: conversão de fps real, speed ramps, punches, zoom lento, pan, flash, zoom-blur, dip.
+    Material diferente (cenário B): clips de futebol."""
+    A, B = _real("bmw"), _real("futebol")[:3]
+    shots = [
+        _S(0, 10, 15),
+        _S(2, 30, 15, zoom=(1.3, 1.0), ease="out"),
+        _S(1, 8, 8),
+        _S(2, 110, 7),
+        _S(0, 50, 30, zoom=(1.0, 1.35), ease="inout"),
+        _S(2, 180, 15, speed=2.0),
+        _S(1, 30, 15, zoom=(1.25, 1.25), center=((0.42, 0.5), (0.58, 0.5))),
+        _S(0, 110, 15, speed=0.5, zoom=(1.15, 1.15)),
+        _S(2, 260, 30, zoom=(1.0, 1.4)),
+        _S(0, 140, 15, color=(0.05, 1.15, 1.3)),
+        _S(2, 360, 15, speed=1.5),
+        _S(1, 45, 15, zoom=(1.2, 1.2), center=((0.5, 0.44), (0.5, 0.56))),
+    ]
+    trans = [_T("flash", 4), _T(), _T(), _T("zoom_blur", 6), _T(), _T(), _T("flash", 4), _T("dip_black", 6), _T(), _T(),
+             _T("flash", 4)]
+    return GTEdit("r4_real_bmw_916", "velocity (filmagem real)", 30.0, (540, 960), shots, trans, bpm=120.0,
+                  notes="fontes reais de telemóvel (~26,08 fps)"), A, B
+
+
+def case_r5() -> tuple[GTEdit, list, list]:
+    """Filmagem REAL de futebol (30 fps, comprimida para redes sociais) -> edição social 1:1 a
+    30 fps, 100 BPM, com plano quase P&B e speed ramps. Material diferente: clips da BMW."""
+    A, B = _real("futebol"), _real("bmw")
+    shots = [
+        _S(2, 30, 18, center=((0.5, 0.4), (0.5, 0.4))),
+        _S(3, 40, 18, zoom=(1.3, 1.0), ease="out"),
+        _S(2, 400, 9, speed=2.0),
+        _S(0, 10, 9),
+        _S(3, 200, 36, center=((0.5, 0.32), (0.5, 0.68))),
+        _S(2, 700, 18, speed=0.5, color=(0.0, 1.0, 0.25)),
+        _S(1, 12, 18, zoom=(1.0, 1.5), ease="in"),
+        _S(2, 1000, 36, speed=1.5),
+        _S(3, 380, 18),
+    ]
+    trans = [_T("flash", 4), _T(), _T(), _T(), _T("flash", 4), _T(), _T("zoom_blur", 6), _T()]
+    return GTEdit("r5_real_futebol_11", "social (filmagem real)", 30.0, (720, 720), shots, trans, bpm=100.0,
+                  notes="fontes reais de futebol (TikTok, 30 fps)"), A, B
+
+
+CASES = {"r1": case_r1, "r2": case_r2, "r3": case_r3, "r4": case_r4, "r5": case_r5}
 
 
 # ------------------------------------------------------------------- gerar material
@@ -141,11 +198,11 @@ def build_case(key: str) -> dict:
     }
     if not (os.path.exists(stamp_path) and open(stamp_path).read().strip() == stamp and os.path.exists(paths["ref"])):
         os.makedirs(d, exist_ok=True)
-        srcs_a = [Source(s) for s in specs_a]
+        srcs_a = [make_source(s) for s in specs_a]
         for s, p in zip(srcs_a, paths["A"]):
             s.write(p)
         for s, p in zip(specs_b, paths["B"]):
-            Source(s).write(p)
+            make_source(s).write(p)
         audio = None
         if edit.bpm:
             audio = synth.click_track(os.path.join(d, "music.wav"), edit.duration_s + 0.5, edit.bpm)
@@ -209,6 +266,8 @@ def _overlap_shot(truth: dict, t0: float, t1: float) -> int | None:
 def motion_vs_truth(truth: dict, dna, window_s: float | None = None) -> dict:
     """Movimento medido em cada plano do DNA (no mesmo intervalo de frames que o analisador usa)
     contra o movimento verdadeiro nesse intervalo."""
+    if not truth.get("motion_gt", True):
+        return {"n": 0, "note": "fontes reais: o movimento de câmara da própria filmagem não é conhecido"}
     from velocity.reference.shot_features import stable_range
     rows = []
     fps = dna.fps

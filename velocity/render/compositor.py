@@ -62,6 +62,14 @@ def decode_window(path: str, t0: float, n_frames: int, w: int, h: int, cover_sca
     1440x2560 no ffmpeg só para o warpAffine o voltar a reduzir — ~9x mais píxeis descodificados
     e enviados pelo pipe. O campo de visão é o mesmo; quem amplia agora (uma única vez, bicúbico)
     é o warpAffine em `_render_shot`.
+
+    Tempo (medido com velocity/evaluate/engine_t1.py, fontes com o nº do frame desenhado):
+      * o seek fica 1/4 de frame da FONTE antes de t0 — com `-ss` arredondado a 4 casas, metade
+        dos planos começava 1 frame tarde (20/30 s -> "0.6667" já passa do frame 20);
+      * `fps=...:round=up`: cada frame de saída mostra o frame da fonte que está no ecrã nesse
+        instante (regra "hold"), igual nos dois sentidos (24->30 e 30->24) e igual à do
+        alinhamento e do gerador de verdade. O arredondamento por defeito do filtro dava regras
+        diferentes em cada sentido (até 1 frame de diferença).
     """
     info = probe(path)
     tw, th = _window_size(info, w, h, cover_scale)
@@ -73,8 +81,14 @@ def decode_window(path: str, t0: float, n_frames: int, w: int, h: int, cover_sca
     if denoise > 0.01:  # hqdn3d (espacial+temporal) à resolução NATIVA, antes de ampliar
         d = min(denoise, 1.0)
         dn = f"hqdn3d={1.6 * d:.2f}:{1.3 * d:.2f}:{3.0 * d:.2f}:{2.5 * d:.2f},"
-    cmd = ["ffmpeg", "-v", "error", "-ss", f"{max(t0, 0):.4f}", "-i", path, "-an",
-           "-vf", f"fps={fps},{dn}{vf},format=rgb24", "-frames:v", str(n_frames), "-f", "rawvideo", "-"]
+    # começa no frame que está no ecrã em t0 (seek 1/4 de frame antes dele) e põe esse frame no
+    # instante 0 (setpts), para o `round=up` contar a partir do início do plano
+    src_fps = float(info.fps_nominal or info.fps_avg or 30.0)
+    f0 = math.floor(max(t0, 0.0) * src_fps + 1e-6)
+    seek = max((f0 - 0.25) / src_fps, 0.0)
+    cmd = ["ffmpeg", "-v", "error", "-ss", f"{seek:.6f}", "-i", path, "-an",
+           "-vf", f"setpts=PTS-STARTPTS,fps={fps}:round=up,{dn}{vf},format=rgb24", "-frames:v", str(n_frames),
+           "-f", "rawvideo", "-"]
     r = subprocess.run(cmd, capture_output=True, timeout=300)
     if r.returncode != 0:
         raise RuntimeError(f"decode falhou {path}: {r.stderr[-300:].decode(errors='replace')}")

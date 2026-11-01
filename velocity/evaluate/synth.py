@@ -105,6 +105,82 @@ class Source:
         return path
 
 
+@dataclass
+class FileSpec:
+    """Fonte REAL: um ficheiro de vídeo (compressão, ruído, fps e movimento de câmara verdadeiros)."""
+
+    path: str
+
+
+class FileSource:
+    """Frames de um ficheiro real, na ordem em que estão no ficheiro (sem reamostragem): o frame i
+    da verdade é o i-ésimo frame descodificado. O movimento de câmara da própria filmagem é
+    desconhecido, por isso a verdade de movimento destes casos fica marcada como indisponível."""
+
+    is_file = True
+
+    def __init__(self, spec: FileSpec):
+        from velocity.io.probe import probe
+        self.spec = spec
+        info = probe(spec.path)
+        self.w, self.h = info.width, info.height
+        self.fps = float(info.fps_nominal or info.fps_avg or 30.0)
+        self._n = int(info.n_frames_declared or round(info.duration * self.fps))
+        self._cache: dict[int, np.ndarray] = {}
+
+    @property
+    def n_frames(self) -> int:
+        return self._n
+
+    def preload(self, wanted: set[int]):
+        wanted = {i for i in wanted if 0 <= i < self._n} - set(self._cache)
+        if not wanted:
+            return
+        cmd = ["ffmpeg", "-v", "error", "-i", self.spec.path, "-an", "-fps_mode", "passthrough",
+               "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        size = self.w * self.h * 3
+        i = 0
+        try:
+            while i <= max(wanted):
+                buf = p.stdout.read(size)
+                if len(buf) < size:
+                    break
+                if i in wanted:
+                    self._cache[i] = np.frombuffer(buf, np.uint8).reshape(self.h, self.w, 3)
+                i += 1
+        finally:
+            p.stdout.close()
+            p.kill()
+            p.wait()
+        self._n = max(self._n, i) if i > max(wanted) else i  # o número real de frames, se acabou antes
+
+    def offset(self, i: int) -> tuple[float, float]:
+        return 0.0, 0.0
+
+    def frame(self, i: int, M: np.ndarray | None = None, out_size: tuple[int, int] | None = None) -> np.ndarray:
+        i = int(min(max(i, 0), self._n - 1))
+        if i not in self._cache:
+            self.preload({i})
+        img = self._cache.get(i)
+        if img is None:  # o ficheiro tem menos frames do que declarado
+            img = self._cache[max(self._cache)]
+        if M is None:
+            return img.copy()
+        return cv2.warpAffine(img, M.astype(np.float32), out_size or (self.w, self.h), flags=cv2.INTER_LINEAR,
+                              borderMode=cv2.BORDER_REFLECT)
+
+    def write(self, path: str, crf: int = 14) -> str:
+        import shutil
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        shutil.copyfile(self.spec.path, path)  # a fonte é o próprio ficheiro, sem recodificar
+        return path
+
+
+def make_source(spec):
+    return FileSource(spec) if isinstance(spec, FileSpec) else Source(spec)
+
+
 def _encode(path, frames, w, h, fps, crf, audio: str | None = None):
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     cmd = ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{w}x{h}", "-r", str(fps), "-i", "-"]
@@ -317,12 +393,20 @@ def ground_truth(edit: GTEdit, sources: list[Source]) -> dict:
         "shots": shots, "transitions": [asdict(t) for t in edit.transitions], "bpm": edit.bpm,
         "beats_s": ([k * 60.0 / edit.bpm for k in range(int(edit.duration_s * edit.bpm / 60.0) + 1)] if edit.bpm else []),
         "grade": list(edit.grade), "notes": edit.notes,
-        "sources": [{"seed": s.spec.seed, "size": list(s.spec.size), "drift": list(s.spec.drift), "fps": s.fps,
-                     "seconds": s.spec.seconds} for s in sources],
+        # movimento verdadeiro só existe nas fontes procedurais (nas reais a câmara já se mexe por si)
+        "motion_gt": not any(getattr(s, "is_file", False) for s in sources),
+        "sources": [({"file": os.path.basename(s.spec.path), "size": [s.w, s.h], "fps": s.fps, "frames": s.n_frames}
+                     if getattr(s, "is_file", False) else
+                     {"seed": s.spec.seed, "size": list(s.spec.size), "drift": list(s.spec.drift), "fps": s.fps,
+                      "seconds": s.spec.seconds}) for s in sources],
     }
 
 
 def render_reference(edit: GTEdit, sources: list[Source], path: str, audio_path: str | None = None) -> dict:
+    for si, src in enumerate(sources):  # fontes reais: lê só os frames que a edição usa, numa passagem
+        if getattr(src, "is_file", False):
+            src.preload({src_index(s, k, src.fps, edit.fps) for s in edit.shots if s.source == si
+                         for k in range(-8, s.frames + 8)})
     errs = validate(edit, sources)
     if errs:
         raise ValueError("; ".join(errs))

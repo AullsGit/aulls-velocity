@@ -150,3 +150,42 @@ corte de um plano reconstruído e re-exportação OK.
 - O banco é sintético: valida a exatidão com verdade conhecida, mas vídeo real (compressão de redes
   sociais, letterbox, texto sobreposto, VFR) ainda precisa de casos reais com anotação.
 - No cenário B nada mudou: as causas 2–5 continuam por resolver (próximas correções).
+
+## 5. Atualização (1 nov 2026) — precisão ao frame e filmagem real
+
+### Precisão ao frame do motor (prova T1/T2)
+`velocity/evaluate/frame_probe.py` desenha o número do frame em cada imagem da fonte;
+`engine_t1.py` renderiza planos conhecidos por QUALQUER motor (via `velocity/engine`) e lê de volta
+que frame aparece em cada frame de saída. Regra: "hold" (o frame que está no ecrã nesse instante).
+
+| caso | antes | depois |
+|---|---|---|
+| cortes à mesma taxa | 100% | 100% |
+| velocidade 2× | **0%** (sempre 1 frame adiantado) | 100% |
+| tempo por frame (reconstrução) | 100% | 100% |
+| fonte 24 fps → saída 30 fps | 80% | 100% |
+| fonte 30 fps → saída 24 fps | 100% | 100% |
+| fonte VFR (telemóvel) | 100% | 100% |
+
+Causas corrigidas no compositor: `-ss` arredondado a 4 casas (metade dos planos começava 1 frame
+tarde) e o arredondamento do filtro `fps`, que seguia regras diferentes em cada sentido.
+Teste de regressão: `tests/test_frame_accuracy.py`.
+
+### Filmagem real com edição conhecida
+`synth.FileSource`: a mesma edição com verdade exata, mas sobre clips REAIS (compressão de redes
+sociais, ruído, fps de telemóvel ~26,08 VFR, movimento de câmara verdadeiro). Os caminhos ficam
+em `bench/real/sources.json` (local, fora do Git: material de terceiros).
+
+| caso (cenário A) | SSIM (teto) | fonte certa | cortes encontrados |
+|---|---|---|---|
+| r4 — 3 clips da mesma cena (jump cuts), 26 fps VFR → 9:16 30 fps | 0,905 (0,988) | 50% | 3 de 11 |
+| r5 — futebol 30 fps → 1:1 | 0,868 (0,986) | 78% | 8 de 8 (2 desviados) |
+
+O que isto mostra (e o banco sintético não mostrava):
+- **Jump cuts** (cortes entre planos da mesma cena, câmara fixa): o analisador não os vê (recall
+  0,27) porque deteta cortes por mudança de cor/estrutura; até os flashes passam a "efeito dentro
+  do plano". No cenário A, o alinhamento vê a descontinuidade da fonte, mas a reanálise de segmento
+  só divide uma vez por ponta — é preciso dividir de forma iterativa.
+- Planos muito curtos a 2× e planos quase P&B (r5) ainda falham a recuperação.
+- A validação do plano apanhou, antes de renderizar, uma velocidade aproximada inválida (reverse
+  medido) — corrigido na reconstrução (a aproximação editável fica nos limites; o rasto medido manda).

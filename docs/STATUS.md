@@ -390,3 +390,19 @@ Detalhe completo, métricas e números em **[docs/FIDELITY.md](FIDELITY.md)**.
   clips de material diferente da referência (com o mesmo material, o motor agora reconstrói).
 - Por resolver (cenário B): formato da referência, movimento, velocidade absoluta, cross-fade e
   cor — sequência em docs/FIDELITY.md §2.
+
+## Atualização — nova arquitetura: Plano v1 + adaptador de motor (2026-11-01)
+
+Auditoria completa (página "AullsVelocity — Auditoria e Plano"). Decisões do utilizador: produto
+web/PWA global; Docker Desktop instalado (falta o WSL para arrancar); implementar já.
+- **Plano de edição v1** (`velocity/plan`, docs/PLAN.md): contrato versionado entre inteligência e
+  motor, validado antes do render (e no editor antes de reservar créditos); projetos antigos abrem
+  sem migração; conversão exata (banco idêntico antes/depois, 6/6).
+- **Adaptador de motor** (`velocity/engine`): compositor atual atrás de `RenderEngine` +
+  `Capabilities`; MLT/GES entram aqui depois da prova técnica.
+- **Medição de recursos** por etapa (RAM, CPU, VRAM do PyTorch) nas métricas de cada job.
+- **CI** no GitHub (Python 3.11 = imagens Docker; SQL em PGlite).
+- **Precisão ao frame** medida e corrigida (2 bugs no compositor) — docs/FIDELITY.md §5.
+- **Filmagem real** no banco de fidelidade (r4, r5) — revela jump cuts e planos curtos como as
+  próximas falhas a corrigir.
+- Testes: 78/78.
