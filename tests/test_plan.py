@@ -90,7 +90,7 @@ def test_validacao_apanha_erros_antes_do_render(mutate, code):
 
 def test_motor_recusa_o_que_nao_sabe_fazer_antes_de_renderizar(tmp_path):
     plan = timeline_to_plan(_timeline())
-    plan.video_items()[1].transition_in.type = "dissolve"  # tipo que o compositor não executa
+    plan.video_items()[1].transition_in.type = "wipe"  # tipo que o compositor não executa
     plan.video_items()[2].at = 30  # sobreposição com o item anterior (cross-fade/PiP)
     codes = {(i.code, i.where) for i in get_engine().validate(plan)}
     assert ("unsupported", "V1/v1") in codes and ("unsupported", "V1/v2") in codes

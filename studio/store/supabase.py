@@ -42,7 +42,7 @@ class SupabaseStore:
         return self._first(self._t("profiles").select("*").eq("id", user_id).limit(1).execute())
 
     def update_profile(self, user_id: str, fields: dict) -> dict:
-        allowed = {k: v for k, v in fields.items() if k in ("display_name", "onboarded", "plan")}
+        allowed = {k: v for k, v in fields.items() if k in ("display_name", "onboarded", "plan", "agent_memory")}
         return self._first(self._t("profiles").update(allowed).eq("id", user_id).execute())
 
     # ---------------------------------------------------------------- projetos
@@ -62,6 +62,25 @@ class SupabaseStore:
 
     def delete_project(self, project_id: str) -> None:
         self._t("projects").delete().eq("id", project_id).execute()
+
+    # ------------------------------------------------------- conversas do agente
+    def create_thread(self, user_id: str, project_id: str) -> dict:
+        self._t("agent_threads").upsert({"project_id": project_id, "user_id": user_id}, on_conflict="project_id",
+                                        ignore_duplicates=True).execute()
+        return self.get_thread(project_id)
+
+    def get_thread(self, project_id: str) -> dict | None:
+        return self._first(self._t("agent_threads").select("*").eq("project_id", project_id).limit(1).execute())
+
+    def update_thread(self, project_id: str, fields: dict) -> dict:
+        return self._first(self._t("agent_threads").update({**fields, "updated_at": _now()}).eq("project_id", project_id).execute())
+
+    def list_threads(self, user_id: str, limit: int = 100) -> list[dict]:
+        return (self._t("agent_threads").select("project_id,user_id,status,created_at,updated_at").eq("user_id", user_id)
+                .order("updated_at", desc=True).limit(limit).execute().data)
+
+    def list_running_threads(self) -> list[dict]:
+        return self._t("agent_threads").select("project_id,user_id,status").eq("status", "running").limit(200).execute().data
 
     def find_project_by_share(self, token: str) -> dict | None:
         return self._first(self._t("projects").select("*").eq("share_token", token).limit(1).execute())

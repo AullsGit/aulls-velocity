@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from velocity.schemas.edit_dna import Curve, EffectTrack, FxEvent, Transition
 
-PLAN_VERSION = "1.0"
+PLAN_VERSION = "1.1"
 PLAN_MAJOR = 1
 
 Warp = tuple[float, float, float, float, float, float]
@@ -46,7 +46,7 @@ class Source(BaseModel):
 class Provenance(BaseModel):
     """Origem de uma decisão e quanta confiança merece. `confidence` None = não medida."""
 
-    by: Literal["matcher", "source_align", "reference", "editor", "user", "system"] = "matcher"
+    by: Literal["matcher", "source_align", "reference", "editor", "user", "system", "agent"] = "matcher"
     confidence: float | None = None
     method: str | None = None
     notes: list[str] = []
@@ -109,6 +109,7 @@ class VideoItem(BaseModel):
     transform: Transform = Field(default_factory=Transform)
     color: ColorOps = Field(default_factory=ColorOps)
     transition_in: Transition | None = None  # frames absolutos na saída
+    audio_volume: float = 0.0  # som original deste trecho na mistura (acompanha o plano em qualquer corte)
     provenance: Provenance = Field(default_factory=Provenance)
     measured: list[bool] | None = None  # por frame: medido (True) ou extrapolado (False) — só em per_frame
 
@@ -136,7 +137,10 @@ class TextItem(BaseModel):
     width: float
     height: float
     entry: Literal["pop", "fade", "none"] = "none"
-    style: Literal["outline", "box"] = "outline"  # box = legenda (texto sobre caixa semitransparente)
+    # box = legenda (texto sobre caixa semitransparente); watermark = conta a seguir (x,y = início da linha)
+    style: Literal["outline", "box", "watermark"] = "outline"
+    icon: Literal["none", "tiktok", "instagram"] = "none"
+    opacity: float = Field(1.0, ge=0, le=1)
     color: tuple[int, int, int] | None = None  # RGB do texto; None = a do estilo
     box_color: tuple[int, int, int] = (0, 0, 0)
     box_alpha: float = Field(0.65, ge=0, le=1)
@@ -157,6 +161,7 @@ class Look(BaseModel):
     contrast: float = 1.0
     sharpen: float = 0.0
     pivot: float = 110.0
+    matrix: list[list[float]] | None = None  # grade 3x4 (RGB 0..255) MEDIDA: leva a cor dos clips para a da referência
 
 
 class RenderHints(BaseModel):

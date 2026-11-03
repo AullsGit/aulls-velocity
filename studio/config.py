@@ -65,6 +65,7 @@ SOURCE_RETENTION_DAYS = _int("VELOCITY_SOURCE_RETENTION_DAYS", 14)
 DEFAULT_PRICING = {
     "credits_per_generation": {"fast": 1, "standard": 1, "hd": 2},
     "credits_per_edit_export": 0,
+    "credits_per_agent_revision": 1,  # cada versão final corrigida pelo agente (a 1.ª custa uma geração)
     "credit_usd_value": 0.50,
     # Custo do fornecedor de computação por segundo de execução (ver a página de preços do
     # RunPod para a GPU escolhida). 0 = ainda não configurado; o custo por vídeo aparece "—".
@@ -76,6 +77,22 @@ DEFAULT_PACKS = [
 ]
 
 EMOLA_NUMBER = _env("EMOLA_NUMBER", "868116236")
+
+# --- Agente de edição (studio/agent) ----------------------------------------------------------
+# Sem credenciais da Anthropic o agente fica desligado e a app explica porquê; o resto funciona.
+AGENT_ENABLED = bool(_env("ANTHROPIC_API_KEY") or _env("ANTHROPIC_AUTH_TOKEN")) and _env("AGENT_ENABLED", "1") == "1"
+AGENT_MODEL = _env("AGENT_MODEL", "claude-opus-5-5")
+AGENT_EFFORT = _env("AGENT_EFFORT", "high")  # low | medium | high | xhigh | max
+AGENT_MAX_TOKENS = _int("AGENT_MAX_TOKENS", 32000)  # por resposta (o pensamento conta)
+AGENT_MAX_ITERATIONS = _int("AGENT_MAX_ITERATIONS", 40)  # chamadas ao modelo por mensagem do utilizador
+AGENT_MAX_TURN_INPUT_TOKENS = _int("AGENT_MAX_TURN_INPUT_TOKENS", 400000)  # tokens não-cache por mensagem: trava de custo
+AGENT_MAX_CONCURRENT_TURNS = _int("AGENT_MAX_CONCURRENT_TURNS", 8)
+AGENT_MAX_PREVIEWS_PER_TURN = _int("AGENT_MAX_PREVIEWS_PER_TURN", 6)
+AGENT_MAX_FINALS_PER_TURN = _int("AGENT_MAX_FINALS_PER_TURN", 2)
+AGENT_KEEP_VERSIONS = _int("AGENT_KEEP_VERSIONS", 4)  # vídeos guardados por projeto (o Supabase Free tem 1 GB)
+RATE_AGENT_TURNS_PER_HOUR = _int("VELOCITY_RATE_LIMIT_AGENT", 30)
+AGENT_FREE_TURNS_PER_DAY = _int("AGENT_FREE_TURNS_PER_DAY", 6)  # para quem ainda não tem créditos conversar e experimentar
+AGENT_TOOL_TIMEOUT_S = _int("AGENT_TOOL_TIMEOUT_S", 1500)
 
 # --- Rate limits (por utilizador / IP, janela deslizante em memória) -------------------------
 RATE_GENERATIONS_PER_HOUR = _int("VELOCITY_RATE_LIMIT_JOBS", 10)

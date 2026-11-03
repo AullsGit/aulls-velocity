@@ -2,7 +2,8 @@
 
 É hoje o único motor que executa o rasto medido do cenário A (frame da fonte + afim + matriz de
 cor por frame) e os efeitos medidos da referência. Limites: uma pista de vídeo sequencial, sem
-sobreposição (sem cross-fade nem PiP) e uma faixa de áudio.
+sobreposição de itens (a dissolução é uma transição do plano seguinte, não dois itens sobrepostos;
+sem PiP) e uma faixa de áudio principal, mais o som original de cada plano (`audio_volume`).
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ CAPS = Capabilities(
     gaps_allowed=False,
     overlapping_items=False,
     max_audio_items=1,
-    transitions=frozenset({"cut", "flash", "dip_black", "blur", "glitch"}),
+    transitions=frozenset({"cut", "flash", "dip_black", "blur", "glitch", "dissolve"}),
     effects=frozenset({"zoom_punch", "shake", "rgb_split", "exposure_pulse", "contrast_pulse", "sat_pulse"}),
     per_frame_time=True,
     per_frame_transform=True,

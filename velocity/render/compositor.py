@@ -20,7 +20,7 @@ import numpy as np
 
 from velocity.io.frames import iter_range
 from velocity.io.probe import probe
-from velocity.render import effects, fxstack, sr as srmod, textfx
+from velocity.render import audiomix, effects, fxstack, sr as srmod, textfx
 from velocity.schemas.edit_dna import Curve
 from velocity.schemas.timeline import ClipUse, Timeline, TimelineShot
 
@@ -308,6 +308,63 @@ def _render_exact(shot: TimelineShot, tl: Timeline, plan: _ShotPlan, frames: dic
         yield shot.start_frame + j, np.ascontiguousarray(out)
 
 
+def _preroll(shot: TimelineShot, n: int, tl: Timeline) -> TimelineShot:
+    """O que o plano mostraria nos `n` frames ANTES de começar (para a dissolução de entrada)."""
+    c = shot.clip.model_copy(deep=True)
+    if c.exact is not None:
+        ex, first = c.exact, c.exact.src_frames[0]
+        c.exact = ex.model_copy(update={"src_frames": [max(0, first - n + k) for k in range(n)], "warps": [ex.warps[0]] * n,
+                                        "measured": []})
+    else:
+        s0, z0 = float(c.speed.v[0]), float(c.zoom.v[0])
+        c.src_start_s = max(0.0, c.src_start_s - n / tl.fps * s0)
+        c.speed = Curve(t=[0.0, 1.0], v=[s0, s0])
+        c.zoom = Curve(t=[0.0, 1.0], v=[z0, z0])
+        c.pan = (0.0, 0.0)
+    return TimelineShot(index=shot.index, start_frame=shot.start_frame - n, end_frame=shot.start_frame, clip=c)
+
+
+def _postroll(shot: TimelineShot, n: int, tl: Timeline) -> TimelineShot:
+    """O que o plano mostraria nos `n` frames DEPOIS de acabar (para a dissolução de saída)."""
+    c = shot.clip.model_copy(deep=True)
+    if c.exact is not None:
+        ex, last = c.exact, c.exact.src_frames[-1]
+        c.exact = ex.model_copy(update={"src_frames": [last + 1 + k for k in range(n)], "warps": [ex.warps[-1]] * n,
+                                        "measured": []})
+    else:
+        s1, z1 = float(c.speed.v[-1]), float(c.zoom.v[-1])
+        used = source_frames_needed(shot.n_frames, c.speed)
+        c.src_start_s = c.src_start_s + used / tl.fps
+        c.speed = Curve(t=[0.0, 1.0], v=[s1, s1])
+        c.zoom = Curve(t=[0.0, 1.0], v=[z1, z1])
+        c.center = (c.center[0] + c.pan[0], c.center[1] + c.pan[1])
+        c.pan = (0.0, 0.0)
+    return TimelineShot(index=shot.index, start_frame=shot.end_frame, end_frame=shot.end_frame + n, clip=c)
+
+
+def _dissolve_partners(tl: Timeline, si: int, masks) -> dict[int, tuple[np.ndarray, float, bool]]:
+    """Para o plano `si`: frame global -> (imagem do outro lado, peso do plano que ENTRA, este plano é o que entra).
+
+    A dissolução é uma transição do plano seguinte: o que entra começa antes do corte e o que sai
+    continua depois dele. Os dois lados vêm da própria fonte, nunca de frames repetidos."""
+    out: dict[int, tuple[np.ndarray, float, bool]] = {}
+
+    def weight(f: int, t) -> float:
+        return (f - t.start_frame + 0.5) / max(t.end_frame - t.start_frame, 1)
+
+    shot = tl.shots[si]
+    t = shot.transition_in
+    if t is not None and t.type == "dissolve" and si > 0 and t.end_frame > t.cut_frame:
+        for f, img in _render_shot(_postroll(tl.shots[si - 1], t.end_frame - t.cut_frame, tl), tl, masks):
+            out[f] = (img, weight(f, t), True)
+    nxt = tl.shots[si + 1] if si + 1 < len(tl.shots) else None
+    t = nxt.transition_in if nxt is not None else None
+    if t is not None and t.type == "dissolve" and t.cut_frame > t.start_frame:
+        for f, img in _render_shot(_preroll(nxt, t.cut_frame - t.start_frame, tl), tl, masks):
+            out[f] = (img, weight(f, t), False)
+    return out
+
+
 class _Writer:
     def __init__(self, path: str, w: int, h: int, fps: float, music: str | None, music_offset: float, duration: float, crf: int,
                  preset: str = "medium", volume: float = 1.0):
@@ -378,9 +435,12 @@ def _prefetched_frames(tl: Timeline, plans: list[_ShotPlan]):
 
 def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dict | None = None, preset: str = "medium") -> str:
     duration = tl.n_frames / tl.fps
-    w = _Writer(out_path, tl.width, tl.height, tl.fps, tl.music_path, tl.music_offset_s, duration, crf, preset,
+    mix = audiomix.needs_mix(tl)  # som dos clips na mistura: vídeo primeiro, áudio numa passagem à parte (sem recodificar)
+    video_path = f"{out_path}.silent.mp4" if mix else out_path
+    w = _Writer(video_path, tl.width, tl.height, tl.fps, None if mix else tl.music_path, tl.music_offset_s, duration, crf, preset,
                 volume=tl.music_volume)
-    all_trans = [s.transition_in for s in tl.shots if s.transition_in is not None]
+    all_trans = [s.transition_in for s in tl.shots if s.transition_in is not None and s.transition_in.type != "dissolve"]
+    grade = np.array(tl.post_matrix, np.float32) if tl.post_matrix else None
     post_lut = None
     if abs(tl.post_gamma - 1.0) > 0.01 or abs(tl.post_contrast - 1.0) > 0.01:
         x = 255.0 * (np.arange(256) / 255.0) ** tl.post_gamma
@@ -390,7 +450,11 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
     decoded = _prefetched_frames(tl, plans)
     try:
         for si, (shot, frames) in enumerate(zip(tl.shots, decoded)):
+            partners = _dissolve_partners(tl, si, masks)
             for f, img in _render_shot(shot, tl, masks, plans[si], frames):
+                if f in partners:
+                    other, a, incoming = partners[f]
+                    img = cv2.addWeighted(img, a if incoming else 1.0 - a, other, 1.0 - a if incoming else a, 0)
                 if tl.effects:
                     img = fxstack.post_fx(img, f, tl.effects, tl.fx_scale)
                 # efeitos cuja janela contém f (transições e eventos de fx)
@@ -402,8 +466,11 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
                         mid = (ev.start_frame + ev.end_frame) // 2
                         amt = effects.envelope(f, ev.start_frame, mid, ev.end_frame)
                         img = effects.apply(img, ev.type, amt, ev.intensity, "radial", f)
+                if grade is not None:
+                    img = cv2.transform(img, grade)
                 for tx_ in tl.texts:
-                    img = textfx.draw(img, tx_, f)
+                    if tx_.style != "watermark":
+                        img = textfx.draw(img, tx_, f)
                 if post_lut is not None:
                     img = cv2.LUT(img, post_lut)
                 if tl.post_sharp > 0.02:
@@ -411,6 +478,9 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
                 if abs(tl.post_sat - 1.0) > 0.02:
                     g = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
                     img = cv2.addWeighted(cv2.merge([g, g, g]), 1.0 - tl.post_sat, img, tl.post_sat, 0)
+                for tx_ in tl.texts:  # a marca de água fica por cima de tudo, sem o look da edição
+                    if tx_.style == "watermark":
+                        img = textfx.draw(img, tx_, f)
                 w.write(img)
                 written += 1
             if progress:
@@ -420,4 +490,8 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
         w.close()
     if written != tl.n_frames:
         raise RuntimeError(f"timeline incoerente: escreveu {written} frames, esperava {tl.n_frames}")
+    if mix:
+        audiomix.mix_audio(video_path, tl, out_path)
+        if os.path.exists(video_path):
+            os.remove(video_path)
     return out_path

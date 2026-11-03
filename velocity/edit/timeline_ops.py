@@ -21,7 +21,7 @@ from velocity.schemas.timeline import ClipUse, ExactTrack, TextOverlay, Timeline
 
 MAX_TOTAL_S = 90.0
 MIN_SHOT_FRAMES = 3
-TRANSITION_TYPES = ("cut", "flash", "dip_black", "blur", "glitch")
+TRANSITION_TYPES = ("cut", "flash", "dip_black", "blur", "glitch", "dissolve")
 FILTERS = {
     "none": {},
     "vivid": {"sat": 1.3, "contrast": 1.1},
@@ -38,7 +38,7 @@ class EditShot(BaseModel):
     trim_in_s: float = 0.0  # segundos cortados no início do plano original
     duration_s: float = Field(..., gt=0)
     speed: float | None = None  # None = curva de velocidade original da IA; número = velocidade constante
-    transition: Literal["keep", "cut", "flash", "dip_black", "blur", "glitch"] = "keep"
+    transition: Literal["keep", "cut", "flash", "dip_black", "blur", "glitch", "dissolve"] = "keep"
     zoom: float | None = None  # None = zoom original; número = zoom constante (1 = enquadramento inteiro)
     center: tuple[float, float] | None = None
     flip: bool | None = None
@@ -52,6 +52,12 @@ class EditText(BaseModel):
     y: float = 0.8
     size: float = 0.06  # altura da letra (fração da altura do vídeo)
     entry: Literal["pop", "fade", "none"] = "pop"
+    # legenda e marca de água do agente: passam pelo editor sem perder o estilo
+    style: Literal["outline", "box", "watermark"] = "outline"
+    color: tuple[int, int, int] | None = None
+    box_alpha: float = 0.65
+    icon: Literal["none", "tiktok", "instagram"] = "none"
+    opacity: float = 1.0
 
 
 class EditLook(BaseModel):
@@ -78,7 +84,8 @@ def doc_from_timeline(tl: Timeline) -> EditDoc:
     """Estado inicial do editor (o que a IA gerou), em segundos e sem nada alterado."""
     shots = [EditShot(orig=i, duration_s=round(s.n_frames / tl.fps, 3)) for i, s in enumerate(tl.shots)]
     texts = [EditText(text=t.text, start_s=round(t.start_frame / tl.fps, 3), end_s=round(t.end_frame / tl.fps, 3),
-                      x=t.x, y=t.y, size=t.height, entry=t.entry if t.entry in ("pop", "fade") else "none")
+                      x=t.x, y=t.y, size=t.height, entry=t.entry if t.entry in ("pop", "fade") else "none",
+                      style=t.style, color=t.color, box_alpha=t.box_alpha, icon=t.icon, opacity=t.opacity)
              for t in tl.texts]
     return EditDoc(shots=shots, texts=texts, music_volume=tl.music_volume)
 
@@ -227,9 +234,10 @@ def apply_edit(original: Timeline, doc: EditDoc, files: dict[str, str]) -> Timel
         a, b = int(round(t.start_s * fps)), int(round(t.end_s * fps))
         a, b = max(0, min(a, total - 1)), max(1, min(b, total))
         if b > a:
-            texts.append(TextOverlay(text=t.text, start_frame=a, end_frame=b, x=_clamp(t.x, 0.05, 0.95),
-                                     y=_clamp(t.y, 0.05, 0.95), width=0.9, height=_clamp(t.size, 0.02, 0.15),
-                                     entry=t.entry))
+            texts.append(TextOverlay(text=t.text, start_frame=a, end_frame=b, x=_clamp(t.x, 0.0, 0.95),
+                                     y=_clamp(t.y, 0.05, 0.97), width=0.9, height=_clamp(t.size, 0.005, 0.15),
+                                     entry=t.entry, style=t.style, color=t.color, box_alpha=t.box_alpha, icon=t.icon,
+                                     opacity=t.opacity))
 
     lk = doc.look
     f = FILTERS[lk.filter]

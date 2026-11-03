@@ -35,7 +35,10 @@ def choose_engine(plan, order: tuple[str, ...] | None = None) -> RenderEngine:
     pref = os.environ.get("VELOCITY_ENGINE")
     order = order or tuple(dict.fromkeys([n for n in (pref, "compositor", "mlt") if n]))
     for name in order:
-        eng = get_engine(name)
+        try:
+            eng = get_engine(name)
+        except ImportError:  # imagem leve da API: valida contra o compositor, o worker tem o resto
+            continue
         if getattr(eng, "available", lambda: True)() and not errors(eng.validate(plan)):
             return eng
     return get_engine(order[0])  # nenhum aceita: o preferido devolve os erros ao renderizar

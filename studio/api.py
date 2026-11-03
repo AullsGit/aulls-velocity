@@ -111,6 +111,7 @@ def project_view(p: dict, full: bool = False) -> dict:
         "files": files, "reference_summary": p.get("reference_summary"),
         "has_output": bool(p.get("output_path")), "sources_purged": p.get("sources_purged", False),
         "share_url": f"/s/{p['share_token']}" if p.get("share_token") else None,
+        "agent": bool((p.get("settings") or {}).get("agent")),
     }
     ref = next((f for f in p.get("files") or [] if f["kind"] == "reference"), None)
     out["reference_name"] = ref["name"] if ref else None
@@ -289,6 +290,9 @@ def delete_project(project_id: str, user: User = Depends(require_user)):
     p = _own_project(project_id, user)
     for j in get_store().list_jobs(project_id=p["id"], statuses=JOB_ACTIVE, limit=5):
         jobs().cancel(user.id, j["id"])
+    from studio.agent_api import service as agent_service
+    agent_service().cancel(p["id"])
+    agent_service().delete_remote_files(get_store().get_thread(p["id"]))
     st = get_storage()
     prefix = f"{user.id}/{p['id']}"
     for bucket in ("uploads", "outputs", "thumbs"):

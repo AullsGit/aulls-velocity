@@ -41,6 +41,7 @@ class SegmenterParams:
     dip_lum_max: float = 24.0
     blur_ratio_max: float = 0.40  # nitidez mínima / base <= isto => blur
     edge_frames: int = 2  # intervalos que tocam nas pontas = fade de entrada/saída
+    soft_cuts: bool = True  # dissoluções e cortes dentro de movimento forte (reference/soft_cuts.py)
 
 
 @dataclass
@@ -245,6 +246,12 @@ def segment(rgb: np.ndarray, sig: Signals, params: SegmenterParams | None = None
             )
         else:
             seg.fx_events.append(FxEvent(type=t, start_frame=int(a), end_frame=int(b + 1), intensity=round(intensity, 3)))
+
+    if p.soft_cuts:
+        from velocity.reference.soft_cuts import soft_boundaries
+        for b_ in soft_boundaries(rgb, sig.d, [t.cut_frame for t in seg.transitions]):
+            seg.transitions.append(Transition(type=b_["type"], start_frame=b_["start"], end_frame=b_["end"], cut_frame=b_["cut"],
+                                              intensity=round(min(b_["score"] / 6.0, 1.0), 3)))
 
     # planos mínimos: funde cortes demasiado próximos (fica o de maior intensidade)
     trans = sorted(seg.transitions, key=lambda t: t.cut_frame)

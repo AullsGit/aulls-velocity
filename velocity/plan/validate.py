@@ -114,7 +114,22 @@ def validate_plan(plan: Plan) -> list[Issue]:
     lk = plan.look
     if not (0.3 <= lk.gamma <= 3 and 0 <= lk.saturation <= 3 and 0.2 <= lk.contrast <= 3 and 0 <= lk.sharpen <= 1):
         err("look", "look", "correção global fora dos limites")
+    if lk.matrix is not None and (len(lk.matrix) != 3 or any(len(r) != 4 or not _finite(*r) for r in lk.matrix)):
+        err("look_matrix", "look", "matriz de cor global tem de ser 3x4 finita")
+    _dissolves(plan, err)
     return out
+
+
+def _dissolves(plan: Plan, err) -> None:
+    """Uma dissolução vive dos dois lados do corte: a janela tem de caber nos dois planos."""
+    for t in plan.track("video"):
+        items = sorted(t.items, key=lambda i: i.at)
+        for prev, it in zip(items, items[1:]):
+            tr = it.transition_in
+            if tr is None or tr.type != "dissolve":
+                continue
+            if tr.cut_frame - tr.start_frame > prev.duration or tr.end_frame - tr.cut_frame > it.duration:
+                err("dissolve_window", f"{t.id}/{it.id}", "a dissolução é mais longa do que um dos planos que junta")
 
 
 def _video_item(it: VideoItem, where: str, total: int, err, warn):
@@ -153,6 +168,8 @@ def _video_item(it: VideoItem, where: str, total: int, err, warn):
         err("color_matrix", where, "matriz de cor tem de ser 3x4 finita")
     if not (0.2 <= co.gamma <= 5 and 0 <= co.saturation <= 3 and 0 <= co.subject_sharpen <= 1):
         err("color_value", where, "ajuste de cor fora dos limites")
+    if not (0.0 <= it.audio_volume <= 2.0):
+        err("volume", where, f"volume do som do clip {it.audio_volume} fora de 0..2")
     t = it.transition_in
     if t is not None:
         if not (t.start_frame <= t.cut_frame <= t.end_frame):

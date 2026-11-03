@@ -75,6 +75,8 @@ class MakeParams:
     report: str | None = None
     dna: object | None = None  # EditDNA já analisada (ex.: no passo "análise" da app) — evita repetir a análise
     reconstruct: str = "auto"  # auto: reconstrói a referência se os clips forem o material dela (cenário A); off: nunca
+    plan_only: bool = False  # devolve o plano sem renderizar (o agente edita-o antes de gastar um render)
+    intact: bool = False  # só cortes: sem zoom, velocidade, cor, efeitos nem transições na imagem dos clips
 
 
 @dataclass
@@ -116,6 +118,25 @@ def _recon_fallback(dna, size) -> object:
     effects, _ = plan_effects(dna, dna.cut_frames())
     return Timeline(fps=dna.fps, width=size[0], height=size[1], n_frames=dna.n_frames, shots=[], effects=effects,
                     fx_events=dna.fx_events)
+
+
+def _make_intact(tl, durations: dict[str, float]) -> None:
+    """A imagem dos clips fica como está: só se escolhe o trecho de cada um e onde corta."""
+    from velocity.schemas.edit_dna import Curve
+    for sh in tl.shots:
+        c = sh.clip
+        c.speed, c.zoom = Curve(t=[0.0, 1.0], v=[1.0, 1.0]), Curve(t=[0.0, 1.0], v=[0.0, 0.0])
+        c.center, c.pan, c.flip = (0.5, 0.5), (0.0, 0.0), False
+        c.tone_gamma = c.tone_sat = c.subj_gamma = c.bg_gamma = 1.0
+        c.subj_sharp, c.exact = 0.0, None
+        sh.transition_in = None
+        d = durations.get(c.source_path)
+        if d:  # nunca congelar o último frame: o trecho cabe na fonte
+            c.src_start_s = max(0.0, min(c.src_start_s, d - sh.n_frames / tl.fps - 0.05))
+    tl.effects, tl.fx_events = [], []
+    tl.fx_scale = tl.zoom_gain = 1.0
+    tl.post_gamma = tl.post_sat = tl.post_contrast = 1.0
+    tl.post_sharp, tl.denoise, tl.sr = 0.0, 0.0, False
 
 
 def run_make(p: MakeParams, log=print, progress=None) -> MakeResult:
@@ -240,6 +261,8 @@ def _run_make(p: MakeParams, log, progress, meter) -> MakeResult:
     elif not p.music and p.audio_ref and dna_ext.audio.has_audio:
         tl.music_path, tl.music_offset_s = p.ref, 0.0
         info = {**info, "audio": "da referência (loop automático)" if ext_info.get("acao") == "repetida" else "da referência"}
+    if p.intact:
+        _make_intact(tl, {c.path: c.duration_s for c in clips})
     tlog(f"plano feito; música: {tl.music_path and os.path.basename(tl.music_path)}")
     lap("edit_planning")
 
@@ -266,6 +289,10 @@ def _run_make(p: MakeParams, log, progress, meter) -> MakeResult:
     except PlanRejected as e:
         tlog(f"plano recusado antes do render: {e}")
         return MakeResult(ok=False, detector=det, error=f"plano inválido: {e}", timings=timings)
+    if p.plan_only:
+        return MakeResult(ok=True, detector=det, plan=plan, timeline=tl, timings=timings,
+                          report={"decisions": info.get("decisions", []), "extend": ext_info, "retime": info,
+                                  "reconstruction": ({"coverage": round(recon.coverage, 3), "fps": recon.fps} if recon is not None else None)})
     stage("rendering", 0.3)
     engine.render(plan, p.out, crf=p.crf, masks=masks, preset=p.preset,
                   progress=lambda i, n: stage("rendering", 0.3 + 0.5 * i / n))

@@ -46,6 +46,7 @@ def timeline_to_plan(tl: Timeline, provenance: list[Provenance] | None = None, m
             color=ColorOps(gamma=c.tone_gamma, saturation=c.tone_sat, subject_gamma=c.subj_gamma,
                            background_gamma=c.bg_gamma, subject_sharpen=c.subj_sharp, matrix=ex.color if ex else None),
             transition_in=sh.transition_in, provenance=prov, measured=list(ex.measured) if ex and ex.measured else None,
+            audio_volume=c.audio_volume,
         ))
     tracks = [Track(id="V1", kind="video", items=video)]
     if tl.music_path:
@@ -56,13 +57,13 @@ def timeline_to_plan(tl: Timeline, provenance: list[Provenance] | None = None, m
         tracks.append(Track(id="T1", kind="text", items=[TextItem(
             id=f"t{i}", text=t.text, at=t.start_frame, duration=t.end_frame - t.start_frame, x=t.x, y=t.y,
             width=t.width, height=t.height, entry=t.entry if t.entry in ("pop", "fade", "none") else "none",
-            style=t.style, color=t.color, box_color=t.box_color, box_alpha=t.box_alpha)
+            style=t.style, color=t.color, box_color=t.box_color, box_alpha=t.box_alpha, icon=t.icon, opacity=t.opacity)
             for i, t in enumerate(tl.texts)]))
     return Plan(
         output=Output(width=tl.width, height=tl.height, fps=tl.fps, duration_frames=tl.n_frames),
         sources=sources, tracks=tracks, effects=list(tl.effects), fx_events=list(tl.fx_events),
         look=Look(gamma=tl.post_gamma, saturation=tl.post_sat, contrast=tl.post_contrast, sharpen=tl.post_sharp,
-                  pivot=tl.post_pivot),
+                  pivot=tl.post_pivot, matrix=tl.post_matrix),
         zoom_gain=tl.zoom_gain, effects_scale=tl.fx_scale,
         render_hints=RenderHints(denoise=tl.denoise, super_resolution=tl.sr), meta=dict(meta or {}),
     )
@@ -79,7 +80,7 @@ def plan_to_timeline(plan: Plan) -> Timeline:
                                warps=list(it.transform.warps), color=it.color.matrix,
                                confidence=it.provenance.confidence or 0.0, measured=list(it.measured or []))
         clip = ClipUse(source_path=plan.sources[it.source].uri, src_start_s=it.time.src_start_s, speed=it.time.speed,
-                       slowmo=it.time.slowmo,
+                       slowmo=it.time.slowmo, audio_volume=it.audio_volume,
                        zoom=it.transform.zoom, center=it.transform.center, pan=it.transform.pan, flip=it.transform.flip,
                        tone_gamma=it.color.gamma, tone_sat=it.color.saturation, subj_gamma=it.color.subject_gamma,
                        bg_gamma=it.color.background_gamma, subj_sharp=it.color.subject_sharpen, exact=exact)
@@ -88,13 +89,14 @@ def plan_to_timeline(plan: Plan) -> Timeline:
     audio = [it for t in plan.track("audio") for it in t.items]
     texts = [TextOverlay(text=t.text, start_frame=t.at, end_frame=t.at + t.duration, x=t.x, y=t.y, width=t.width,
                          height=t.height, entry=t.entry, style=t.style, color=t.color, box_color=t.box_color,
-                         box_alpha=t.box_alpha) for tr in plan.track("text") for t in tr.items]
+                         box_alpha=t.box_alpha, icon=t.icon, opacity=t.opacity) for tr in plan.track("text") for t in tr.items]
     music = audio[0] if audio else None
     lk = plan.look
     return Timeline(
         fps=plan.output.fps, width=plan.output.width, height=plan.output.height, n_frames=plan.output.duration_frames,
         shots=shots, fx_events=list(plan.fx_events), texts=texts, effects=list(plan.effects), fx_scale=plan.effects_scale,
         post_gamma=lk.gamma, post_sat=lk.saturation, post_contrast=lk.contrast, post_sharp=lk.sharpen, post_pivot=lk.pivot,
+        post_matrix=lk.matrix,
         sr=plan.render_hints.super_resolution, denoise=plan.render_hints.denoise,
         music_path=plan.sources[music.source].uri if music else None, music_offset_s=music.offset_s if music else 0.0,
         music_volume=music.volume if music else 1.0, zoom_gain=plan.zoom_gain,

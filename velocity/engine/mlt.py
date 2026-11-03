@@ -130,8 +130,12 @@ class MltEngine:
         lk = plan.look
         if (abs(lk.gamma - 1) > 1e-3 or abs(lk.saturation - 1) > 1e-3 or abs(lk.contrast - 1) > 1e-3 or lk.sharpen > 1e-3):
             out.append(Issue("error", "unsupported", "look", "mlt: correção global de look ainda não traduzida"))
+        if lk.matrix is not None:
+            out.append(Issue("error", "unsupported", "look", "mlt: grade global ainda não traduzida"))
         for it in plan.video_items():
             where = f"video/{it.id}"
+            if it.audio_volume > 0:
+                out.append(Issue("error", "unsupported", where, "mlt: som original por plano ainda não traduzido"))
             if it.transform.flip:
                 out.append(Issue("error", "unsupported", where, "mlt: flip ainda não traduzido"))
             if it.transform.warps and max(max(abs(w[1]), abs(w[3])) for w in it.transform.warps) > 0.01:

@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 SCHEMA_VERSION = "1.3"
 
-TransitionType = Literal["cut", "flash", "dip_black", "blur", "glitch"]
+TransitionType = Literal["cut", "flash", "dip_black", "blur", "glitch", "dissolve"]
 BlurKind = Literal["none", "horizontal", "vertical", "radial"]
 SpeedShape = Literal["flat", "ramp_up", "ramp_down", "peak_middle", "valley_middle", "unknown"]
 

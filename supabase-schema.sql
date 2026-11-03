@@ -100,6 +100,7 @@ alter table public.jobs add column if not exists error_detail text;             
 alter table public.jobs add column if not exists idempotency_key text;
 alter table public.jobs add column if not exists output_path text;
 alter table public.jobs add column if not exists metrics jsonb not null default '{}'::jsonb;
+alter table public.jobs add column if not exists result jsonb;                            -- resultado de uma ferramenta do agente
 create index if not exists jobs_user_idx on public.jobs (user_id, created_at desc);
 create index if not exists jobs_active_idx on public.jobs (status) where status in ('QUEUED', 'PROCESSING');
 create unique index if not exists jobs_idem_uniq on public.jobs (user_id, idempotency_key) where idempotency_key is not null;
@@ -108,6 +109,24 @@ update public.jobs set status = 'QUEUED' where status = 'queued';
 update public.jobs set status = 'PROCESSING' where status = 'running';
 update public.jobs set status = 'COMPLETED' where status = 'done';
 update public.jobs set status = 'FAILED' where status in ('error', 'rejected');
+
+-- ======================================================== conversas do agente de edição
+-- Uma conversa por projeto. `messages` é o histórico da API do modelo (só se acrescenta, nunca se
+-- edita); `events` é o que a app mostra; `state` tem o plano de trabalho, as versões e as legendas.
+create table if not exists public.agent_threads (
+  project_id uuid primary key references public.projects(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'idle',             -- idle | running
+  messages jsonb not null default '[]'::jsonb,
+  events jsonb not null default '[]'::jsonb,
+  state jsonb not null default '{}'::jsonb,
+  usage jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists agent_threads_user_idx on public.agent_threads (user_id, updated_at desc);
+create index if not exists agent_threads_running_idx on public.agent_threads (status) where status = 'running';
+alter table public.profiles add column if not exists agent_memory jsonb not null default '[]'::jsonb;
 
 -- ================================================================ ledger de créditos
 create table if not exists public.credit_transactions (
@@ -394,6 +413,7 @@ alter table public.credit_packs enable row level security;
 alter table public.promo_codes enable row level security;
 alter table public.promo_redemptions enable row level security;
 alter table public.events enable row level security;
+alter table public.agent_threads enable row level security;
 
 drop policy if exists "profiles: dono lê" on public.profiles;
 create policy "profiles: dono lê" on public.profiles for select using (auth.uid() = id);
@@ -452,5 +472,5 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 on conflict (id) do update set public = excluded.public,
   file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
-insert into public.app_config (key, value) values ('schema_version', '3'::jsonb)
+insert into public.app_config (key, value) values ('schema_version', '4'::jsonb)
 on conflict (key) do update set value = excluded.value, updated_at = now();

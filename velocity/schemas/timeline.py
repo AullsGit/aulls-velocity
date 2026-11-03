@@ -19,6 +19,7 @@ class ClipUse(BaseModel):
     # câmara lenta paramétrica: "blend" mistura os 2 frames vizinhos (mais suave, o comportamento
     # de sempre); "hold" repete o frame (cada frame de saída é um frame real da fonte)
     slowmo: str = "blend"
+    audio_volume: float = 0.0  # som ORIGINAL deste trecho na mistura (0 = mudo; 0.2 = "levemente ouvido")
     tone_gamma: float = 1.0  # <1 clareia, >1 escurece (aproxima o brilho do plano da referência)
     tone_sat: float = 1.0  # multiplicador de saturação
     subj_gamma: float = 1.0  # <1 levanta a luz SÓ do sujeito (máscara)
@@ -66,7 +67,9 @@ class TextOverlay(BaseModel):
     width: float  # largura máxima (fração da largura)
     height: float  # altura da fonte (fração da altura)
     entry: str = "none"  # pop | fade | none
-    style: str = "outline"  # outline (branco com contorno) | box (legenda: texto sobre caixa)
+    style: str = "outline"  # outline (branco com contorno) | box (legenda: texto sobre caixa) | watermark (conta a seguir)
+    icon: str = "none"  # watermark: none | tiktok | instagram
+    opacity: float = 1.0
     color: tuple[int, int, int] | None = None  # cor do texto (None = a do estilo)
     box_color: tuple[int, int, int] = (0, 0, 0)
     box_alpha: float = 0.65
@@ -89,6 +92,7 @@ class Timeline(BaseModel):
     denoise: float = 0.0  # 0..1 redução de ruído temporal (hqdn3d) na decodificação
     post_sharp: float = 0.0  # 0..0.9 nitidez global só nos contornos (ciclo fechado; só sobe se o output for mais mole que a referência)
     post_pivot: float = 110.0  # luma-alvo à volta da qual o contraste é escalado
+    post_matrix: list[list[float]] | None = None  # grade global 3x4 (RGB, 0..255) medida na referência; ver reference/grade.py
     music_path: str | None = None
     music_offset_s: float = 0.0
     music_volume: float = 1.0  # 0..2 (editor)

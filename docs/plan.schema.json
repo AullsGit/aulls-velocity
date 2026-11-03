@@ -229,7 +229,8 @@
       "flash",
       "dip_black",
       "blur",
-      "glitch"
+      "glitch",
+      "dissolve"
      ],
      "title": "Type",
      "type": "string"
@@ -283,6 +284,24 @@
      "default": 110.0,
      "title": "Pivot",
      "type": "number"
+    },
+    "matrix": {
+     "anyOf": [
+      {
+       "items": {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Matrix"
     }
    },
    "title": "Look",
@@ -333,7 +352,8 @@
       "reference",
       "editor",
       "user",
-      "system"
+      "system",
+      "agent"
      ],
      "title": "By",
      "type": "string"
@@ -469,10 +489,28 @@
      "default": "outline",
      "enum": [
       "outline",
-      "box"
+      "box",
+      "watermark"
      ],
      "title": "Style",
      "type": "string"
+    },
+    "icon": {
+     "default": "none",
+     "enum": [
+      "none",
+      "tiktok",
+      "instagram"
+     ],
+     "title": "Icon",
+     "type": "string"
+    },
+    "opacity": {
+     "default": 1.0,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Opacity",
+     "type": "number"
     },
     "color": {
      "anyOf": [
@@ -744,7 +782,8 @@
       "flash",
       "dip_black",
       "blur",
-      "glitch"
+      "glitch",
+      "dissolve"
      ],
      "title": "Type",
      "type": "string"
@@ -890,6 +929,11 @@
      ],
      "default": null
     },
+    "audio_volume": {
+     "default": 0.0,
+     "title": "Audio Volume",
+     "type": "number"
+    },
     "provenance": {
      "$ref": "#/$defs/Provenance"
     },
@@ -922,7 +966,7 @@
  },
  "properties": {
   "plan_version": {
-   "default": "1.0",
+   "default": "1.1",
    "title": "Plan Version",
    "type": "string"
   },
