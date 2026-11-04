@@ -1,9 +1,10 @@
 # AwlsVelocity — AI reference video editor
 
-**Give AI a reference. It creates your edit.** O utilizador envia os próprios vídeos e um
-vídeo de referência; a IA mede a linguagem de edição da referência (cortes, ritmo, zooms,
-transições, efeitos, batida) e cria um vídeo vertical novo nesse estilo com o conteúdo do
-utilizador. Depois, um editor leve permite corrigir o resultado sem gerar tudo de novo.
+**Give AI a reference. It creates your edit.** Um agente de edição: o utilizador conversa, envia os
+próprios vídeos e uma referência, e o agente mede a linguagem de edição dela (cortes, ritmo, zooms,
+transições, efeitos, cor, música, legenda), planeia, renderiza, verifica o resultado e corrige o que
+lhe pedirem na mesma conversa ([docs/AGENT.md](docs/AGENT.md)). Há também um modo guiado e um editor
+leve para quem quiser ajustar à mão.
 
 - **Web/PWA** (instalável em Android e iPhone), interface mobile-first com versão desktop.
 - **Créditos** pagos (PayPal; e-Mola em Moçambique; códigos promo), preço configurável no Admin.
@@ -27,6 +28,8 @@ velocity/          motor de edição por IA (análise da referência, matching, 
   evaluate/fidelity_bench.py banco de fidelidade com verdade conhecida (ver docs/FIDELITY.md)
   edit/            editor pós-geração: aplica as edições do utilizador à timeline da IA
   pipeline.py      geração completa (usada pelo worker e pela CLI)
+  agent/           o que o agente faz ao plano (planops, report) e o trabalho pesado das ferramentas
+studio/agent/      o agente: prompt, ferramentas, ciclo com o modelo, conversas
 worker/            worker de processamento (runner.py; handler.py + Dockerfile para o RunPod)
 studio/            API FastAPI + app web
   api.py           rotas /api (contas, projetos, uploads assinados, jobs, créditos, pagamentos, admin)

@@ -44,8 +44,9 @@ def _norm(t: str) -> str:
 
 
 def extract_captions(path: str, band: tuple[float, float] = (0.70, 0.995), min_conf: float = 0.3,
-                     log=lambda m: None) -> tuple[list[Caption], float]:
-    """Devolve (legendas, fps nativo da referência)."""
+                     log=lambda m: None, progress=None, stride: int = 2, require_box: bool = True) -> tuple[list[Caption], float]:
+    """Devolve (legendas, fps nativo da referência). `stride`: lê 1 frame em cada N (a legenda dura
+    décimos de segundo; ler todos custa o dobro e não muda os tempos em mais de 1 frame)."""
     import easyocr
     info = probe(path)
     W, H = info.width, info.height
@@ -59,6 +60,11 @@ def extract_captions(path: str, band: tuple[float, float] = (0.70, 0.995), min_c
     reader = easyocr.Reader(["pt", "en"], gpu=True, verbose=False)
     per: list[dict | None] = []
     for k in range(n):
+        if progress and k % 30 == 0:
+            progress("analyzing_reference", 0.05 + 0.9 * k / max(n, 1))
+        if stride > 1 and k % stride:
+            per.append(per[-1])
+            continue
         img = frames[k]
         boxes = []
         for box, txt, conf in reader.readtext(img, paragraph=False):
@@ -82,7 +88,7 @@ def extract_captions(path: str, band: tuple[float, float] = (0.70, 0.995), min_c
         roi = img[ya:yb, x0:x1].reshape(-1, 3).astype(np.int32)
         lum = roi.max(axis=1)
         dark = float((lum < 90).mean())
-        if not (0.3 <= cx <= 0.7) or dark < 0.3:  # texto da cena, não legenda
+        if not (0.3 <= cx <= 0.7) or (require_box and dark < 0.3):  # texto da cena, não legenda
             per.append(None)
             continue
         text = _norm(" ".join(b[4] for b in sorted(line, key=lambda b: b[0])))
@@ -168,7 +174,7 @@ def clean_captions(caps: list[Caption], max_gap: int = 6) -> list[Caption]:
     return merged
 
 
-def caption_style(caps: list[Caption], ref_w: int) -> dict:
+def caption_style(caps: list[Caption], ref_w: int, has_box: bool = True) -> dict:
     """Estilo comum medido: cor do texto, corpo da letra (fração da largura) e posição.
     O corpo sai da LARGURA lida de cada frase comparada com a da mesma frase em Arial (mais estável
     que a altura da caixa do OCR); só frases longas (as curtas têm margem do OCR proporcionalmente
@@ -178,7 +184,7 @@ def caption_style(caps: list[Caption], ref_w: int) -> dict:
     long = [c for c in caps if c.box_w >= 0.2] or caps
     size_w = 0.95 * float(np.median([c.box_w * ref_w / (f.getlength(c.text) / 100) for c in long])) / ref_w
     return {"text_rgb": tuple(int(v) for v in np.median([c.text_rgb for c in caps], axis=0)), "font_w": size_w,
-            "cx": float(np.median([c.cx for c in caps])), "cy": float(np.median([c.cy for c in caps])), "box_alpha": 0.8}
+            "cx": float(np.median([c.cx for c in caps])), "cy": float(np.median([c.cy for c in caps])), "box_alpha": 0.8 if has_box else 0.0}
 
 
 def to_overlays(caps: list[Caption], ref_fps: float, out_fps: float, out_size: tuple[int, int],

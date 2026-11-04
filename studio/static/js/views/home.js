@@ -27,7 +27,7 @@ export async function render(ctx) {
           h("h1", { style: { marginTop: "8px" }, text: t("Create a video from a reference") }),
           h("p", { class: "muted", text: t("Show the AI how your video should look. It recreates the edit with your own clips.") }),
           h("div", { class: "row-wrap" },
-            h("a", { class: "btn btn-primary btn-lg", href: "/create" }, icon("spark"), t("Create video")),
+            h("a", { class: "btn btn-primary btn-lg", href: "/agent" }, icon("spark"), t("Create video")),
             projects.find((p) => p.has_output && !p.sources_purged)
               ? h("a", { class: "btn btn-lg btn-ghost", href: `/edit/${projects.find((p) => p.has_output && !p.sources_purged).id}` }, icon("edit"), t("Edit"))
               : null)),

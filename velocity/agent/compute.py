@@ -41,18 +41,21 @@ def analyze_reference_job(ref: str, tmp: str, progress, summarize_fn, with_capti
     out = {"report": dna_report(dna, summary), "summary": summary, "reference_dna": json.loads(dna.model_dump_json())}
     if with_captions:
         progress("analyzing_reference", 0.8)
-        out["captions"] = captions_job(ref)
+        out["captions"] = captions_job(ref, progress=progress)
     return out, images
 
 
-def captions_job(ref: str, log=lambda m: None) -> dict:
+CAPTION_BANDS = {"bottom": (0.70, 0.995), "middle": (0.30, 0.70), "top": (0.005, 0.30), "full": (0.0, 1.0)}
+
+
+def captions_job(ref: str, log=lambda m: None, progress=None, region: str = "bottom", any_text: bool = False) -> dict:
     from velocity.reference.captions import caption_style, clean_captions, extract_captions
-    raw, fps = extract_captions(ref, log=log)
+    raw, fps = extract_captions(ref, band=CAPTION_BANDS.get(region, CAPTION_BANDS["bottom"]), log=log, progress=progress, require_box=not any_text)
     caps = clean_captions(raw, max_gap=8)
     if not caps:
         return {"lines": [], "style": None, "fps": fps}
     info = probe(ref)
-    st = caption_style(caps, info.width)
+    st = caption_style(caps, info.width, has_box=not any_text)
     lines = [{"text": c.text, "start_s": round(c.start_frame / fps, 3), "end_s": round(c.end_frame / fps, 3)} for c in caps]
     return {"lines": lines, "fps": fps, "style": {"size": round(st["font_w"], 5), "x": round(st["cx"], 4), "y": round(st["cy"], 4),
                                                   "color": list(st["text_rgb"]), "box_alpha": st["box_alpha"]}}
@@ -119,9 +122,32 @@ def measure_grade(ref: str, clips: list[str], duration_s: float) -> list[list[fl
     return grade_matrix(r, np.concatenate([s.reshape(-1, 3) for s in ss]).reshape(-1, 1, 3), strength=1.0)
 
 
-def build_job(ref: str, clips: list[str], dna_doc: dict, opts: dict, log, progress) -> dict:
+def audio_job(path: str) -> dict:
+    """A música como o modelo a pode conhecer: tempo, batidas e energia ao longo do tempo (ele não ouve)."""
+    import subprocess
+    import numpy as np
+    from velocity.reference.audio import analyze_audio
+    r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True, timeout=60)
+    d = float(r.stdout.strip() or 0.0)  # `probe` é só para vídeo; a música não tem faixa de imagem
+    a = analyze_audio(path, [], 30.0, d)
+    r = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-vn", "-ac", "1", "-ar", "8000", "-f", "f32le", "-"], capture_output=True, timeout=300)
+    x = np.frombuffer(r.stdout, np.float32)
+    step = 4000  # meio segundo
+    rms = [float(np.sqrt((x[i:i + step] ** 2).mean())) for i in range(0, max(len(x) - step, 1), step)] if len(x) else []
+    top = max(rms) if rms else 1.0
+    loud = [round(v / max(top, 1e-6), 2) for v in rms][:400]
+    # partes da música: onde a energia salta (mudanças que costumam pedir uma mudança na edição)
+    drops = [round((k + 1) * 0.5, 1) for k in range(len(loud) - 2) if abs(np.mean(loud[k + 1:k + 3]) - np.mean(loud[max(0, k - 1):k + 1])) > 0.35]
+    return {"duration_s": round(d, 2), "bpm": a.bpm, "beats_s": [round(b, 3) for b in a.beats], "onsets_count": len(a.onsets),
+            "loudness_2hz": loud, "energy_changes_s": drops[:40], "has_audio": a.has_audio}
+
+
+def build_job(ref: str, clips: list[str], dna_doc: dict, opts: dict, log, progress, music: str | None = None) -> dict:
     dna = EditDNA.model_validate(dna_doc)
-    plan, info = build_plan(ref, clips, dna, BuildOptions(**opts), log=log, progress=progress)
+    options = BuildOptions(**opts)
+    if music:  # cortes presos à batida da música escolhida
+        options.extra = {**options.extra, "music": music}
+    plan, info = build_plan(ref, clips, dna, options, log=log, progress=progress)
     used_dna: EditDNA = info.pop("dna")
     grade = None
     try:

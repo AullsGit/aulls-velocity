@@ -360,7 +360,10 @@ def _agent(payload: dict, tmp: str, progress) -> dict:
         result, images = compute.analyze_reference_job(local[params["reference"]], tmp, progress, summarize,
                                                        with_captions=bool(params.get("with_captions")), dna_doc=payload.get("reference_dna"))
     elif kind == "agent_captions":
-        result = compute.captions_job(local[params["reference"]])
+        result = compute.captions_job(local[params["reference"]], progress=progress, region=params.get("region", "bottom"),
+                                      any_text=bool(params.get("any_text")))
+    elif kind == "agent_audio":
+        result = compute.audio_job(local[params["target"]])
     elif kind == "agent_analyze_clips":
         result, images = compute.analyze_clips_job([(fid, local[key]) for fid, key in params["clips"]], tmp, progress)
     elif kind == "agent_frames":
@@ -370,7 +373,7 @@ def _agent(payload: dict, tmp: str, progress) -> dict:
                                              tuple(params.get("labels") or ("A", "B")))
     elif kind == "agent_build":
         r = compute.build_job(local[params["reference"]], [local[k] for k in params["clips"]], payload["reference_dna"], params.get("options") or {},
-                              log=lambda m: None, progress=progress)
+                              log=lambda m: None, progress=progress, music=local.get(params["music"]) if params.get("music") else None)
         plan = r.pop("plan").map_uris(lambda u: key_of.get(u, u))
         result = {**r, "plan": json.loads(plan.model_dump_json())}
     elif kind == "agent_verify":

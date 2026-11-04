@@ -54,6 +54,16 @@ class AnalyzeReference(_In):
     with_captions: bool = Field(False, description="Also read on-screen lyrics or captions with OCR (slower). Same as calling extract_captions.")
 
 
+class ExtractCaptions(_In):
+    region: str = Field("bottom", description="Where the text is: bottom | middle | top | full.")
+    any_text: bool = Field(False, description="Also read text without a dark box behind it (titles, plain white captions). More false readings from text in the scene.")
+
+
+class AnalyzeAudio(_In):
+    source: str = Field("reference", description="'reference' or the file id of the music.")
+    use_beats: bool = Field(True, description="Use these beats for snap_cuts_to_beats.")
+
+
 class ViewFrames(_In):
     source: str = Field(..., description="'reference', 'output' (latest render), a version id, or a file id.")
     times_s: list[float] | None = Field(None, description="Exact moments to look at, in seconds.")
@@ -139,7 +149,8 @@ class SetFileRole(_In):
 SPECS: list[tuple[str, str, type[_In]]] = [
     ("analyze_reference", "Deep analysis of the reference video: per-shot table (timing, transition, motion, zoom, speed, brightness), effects, colour look, music tempo and beats, how cuts follow the music, energy over time, plus a sheet of frames to look at.", AnalyzeReference),
     ("analyze_clips", "Study the person's own clips: duration, resolution, sound, where each moves most, its internal cuts, where the subject sits, plus a sheet of frames per clip.", NoArgs),
-    ("extract_captions", "Read on-screen lyrics or captions of the reference with OCR: text, exact timing, position, size and colours. Results stay available for set_captions {from_reference:true}.", NoArgs),
+    ("extract_captions", "Read on-screen lyrics or captions of the reference with OCR: text, exact timing, position, size and colours. Results stay available for set_captions {from_reference:true}.", ExtractCaptions),
+    ("analyze_audio", "Measure a song or the reference's audio: tempo, every beat, loudness over time, where the energy changes. You cannot hear audio; this is how you know it.", AnalyzeAudio),
     ("view_frames", "Look at frames from the reference, a clip or a rendered version. Use it whenever you need to see something, including to locate an exact moment.", ViewFrames),
     ("compare_frames", "See a rendered version and the reference (or another file) side by side at given moments.", CompareFrames),
     ("build_edit", "Create the first working plan from the reference and the clips. It does not render. Replaces the current plan.", BuildEdit),
@@ -168,7 +179,7 @@ def tool_definitions() -> list[dict]:
 
 
 _MODELS = {name: model for name, _, model in SPECS}
-TOOL_LABELS = {"analyze_reference": "A estudar a referência", "analyze_clips": "A ver os teus vídeos", "extract_captions": "A ler a legenda",
+TOOL_LABELS = {"analyze_reference": "A estudar a referência", "analyze_clips": "A ver os teus vídeos", "extract_captions": "A ler a legenda", "analyze_audio": "A medir a música",
                "view_frames": "A olhar para os frames", "compare_frames": "A comparar com a referência", "build_edit": "A montar a edição",
                "get_plan": "A rever o plano", "update_plan": "A ajustar a edição", "render": "A renderizar", "verify_output": "A verificar o resultado",
                "present_version": "A preparar o vídeo", "restore_version": "A voltar atrás", "remember": "A guardar a tua preferência",
@@ -225,7 +236,7 @@ class Toolbox:
         return {f"uploads/{f['path']}": f["id"] for f in self._files()}
 
     def _plan(self):
-        doc = self.state.get("plan")
+        doc = self.state.get("plan") or self._project().get("timeline")  # edição feita no modo guiado: continua daí
         if not doc:
             raise ToolFailure("ainda não há plano de trabalho; corre build_edit primeiro")
         return load_plan(doc)
@@ -274,6 +285,7 @@ class Toolbox:
     def _analyze_reference(self, a: AnalyzeReference, tu: str) -> ToolResult:
         ref = self._reference()
         key = f"uploads/{ref['path']}"
+        self.ctx.wait_upload_analysis()  # a análise grátis do upload pode estar a correr: aproveita-se
         job = self.ctx.run_job("agent_analyze_reference", tu, keys=[key], n_images=1, reference_dna=self._dna_doc(),
                                params={"reference": key, "with_captions": a.with_captions})
         res = job["result"]["result"]
@@ -295,13 +307,22 @@ class Toolbox:
         res = job["result"]["result"]
         return ToolResult(json.dumps(res, ensure_ascii=False, separators=(",", ":")), job["result"].get("images") or [])
 
-    def _extract_captions(self, a: NoArgs, tu: str) -> ToolResult:
+    def _extract_captions(self, a: ExtractCaptions, tu: str) -> ToolResult:
         key = f"uploads/{self._reference()['path']}"
-        job = self.ctx.run_job("agent_captions", tu, keys=[key], params={"reference": key})
+        job = self.ctx.run_job("agent_captions", tu, keys=[key], params={"reference": key, "region": a.region, "any_text": a.any_text})
         caps = job["result"]["result"]
         self.state["captions"] = caps
         self.ctx.save_state()
         return ToolResult(_captions_text(caps))
+
+    def _analyze_audio(self, a: AnalyzeAudio, tu: str) -> ToolResult:
+        key, _ = self._key_for(a.source)
+        job = self.ctx.run_job("agent_audio", tu, keys=[key], params={"target": key})
+        res = job["result"]["result"]
+        if a.use_beats and res.get("beats_s"):
+            self.state["beats"], self.state["beats_source"] = res["beats_s"], a.source
+            self.ctx.save_state()
+        return ToolResult(json.dumps(res, ensure_ascii=False, separators=(",", ":")))
 
     def _view_frames(self, a: ViewFrames, tu: str) -> ToolResult:
         key, label = self._key_for(a.source)
@@ -338,11 +359,22 @@ class Toolbox:
         ref_key = f"uploads/{ref['path']}"
         keys = [f"uploads/{f['path']}" for f in src]
         opts = {"mode": a.mode, "format": a.format, "extend": a.extend, "cuts_s": a.cuts_s}
-        job = self.ctx.run_job("agent_build", tu, keys=[ref_key, *keys], reference_dna=dna, params={"reference": ref_key, "clips": keys, "options": opts})
+        music = None
+        if a.audio not in ("reference", "none"):
+            try:
+                music = self._op_context().key(a.audio)
+            except OpError as e:
+                raise ToolFailure(str(e))
+        job = self.ctx.run_job("agent_build", tu, keys=[ref_key, *keys, *([music] if music else [])], reference_dna=dna,
+                               params={"reference": ref_key, "clips": keys, "options": opts, "music": music})
         res = job["result"]["result"]
         plan = load_plan(res["plan"])
         self.state["grade"] = res.get("grade")
-        self.state["beats"] = res.get("beats") or self.state.get("beats") or []
+        # as batidas têm de ser as da música que vai tocar, não as da referência
+        if music is None:
+            self.state["beats"], self.state["beats_source"] = res.get("beats") or self.state.get("beats") or [], "reference"
+        elif self.state.get("beats_source") != a.audio:
+            self.state["beats"], self.state["beats_source"] = [], None
         ops = [{"op": "set_audio", "bed": a.audio, "bed_volume": a.audio_volume, "clip_volume": a.clip_volume}]
         if a.match_color > 0 and res.get("grade"):
             ops.append({"op": "set_look", "grade": "reference", "strength": a.match_color})
@@ -396,7 +428,6 @@ class Toolbox:
         plan = no_music_variant(base) if a.variant == "no_music" else base
         plan = scale_output(plan, q["short_side"])
         self._check(plan)
-        p = self._project()
         credits = self.ctx.render_cost(a.quality)
         keys = sorted({s.uri for s in plan.sources.values()})
         doc = json.loads(plan.model_dump_json())
@@ -412,6 +443,7 @@ class Toolbox:
         vid = uuid.uuid4().hex[:8]
         res = job["result"]
         _, thumb = self.ctx.output_paths(job)
+        doc["output"]["width"], doc["output"]["height"] = plan.output.width, plan.output.height
         version = {"id": vid, "job_id": job["id"], "output_path": job.get("output_path"), "thumbnail_path": thumb, "quality": a.quality,
                    "variant": a.variant, "note": a.note, "duration_s": res.get("duration_s"), "resolution": res.get("resolution"),
                    "credits": credits, "plan": doc, "created_at": job.get("completed_at"), "presented": False}
@@ -426,7 +458,6 @@ class Toolbox:
         plan = load_plan(v["plan"])
         ref = next(iter(self._files("reference")), None)
         ref_key = f"uploads/{ref['path']}" if ref else None
-        o = plan.output
         # o plano da versão tem a resolução de trabalho; o render saiu na da qualidade pedida
         if v.get("resolution"):
             w, h = v["resolution"].split("x")
@@ -435,7 +466,6 @@ class Toolbox:
         keys = sorted({s.uri for s in plan.sources.values()} | {out_key} | ({ref_key} if ref_key else set()))
         job = self.ctx.run_job("agent_verify", tu, keys=keys, plan=json.loads(plan.model_dump_json()), reference_dna=self._dna_doc(),
                                params={"output": out_key, "reference": ref_key})
-        _ = o
         return ToolResult(json.dumps(job["result"]["result"], ensure_ascii=False, separators=(",", ":")))
 
     def _present_version(self, a: Present, tu: str) -> ToolResult:

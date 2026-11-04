@@ -406,3 +406,16 @@ web/PWA global; Docker Desktop instalado (falta o WSL para arrancar); implementa
 - **Filmagem real** no banco de fidelidade (r4, r5) — revela jump cuts e planos curtos como as
   próximas falhas a corrigir.
 - Testes: 78/78.
+
+## Atualização — agente de edição (2026-11-04)
+
+O produto passa a ser uma conversa: `docs/AGENT.md`.
+- **Agente** (`studio/agent`, `velocity/agent`): 16 ferramentas reais sobre o Plano v1; ciclo com
+  histórico só por acréscimo, retoma depois de um reinício sem repetir nem cobrar 2x; memória de
+  preferências; verificação objetiva do resultado (`verify_output`) e comparação visual com a
+  referência; interface de chat na PWA (`/agent`) como entrada principal.
+- **Motor**: dissolução verdadeira, som original por plano (acompanha os cortes), marca de água,
+  grade de cor 3x4 medida, modo "imagem intacta".
+- **Referência**: deteta dissoluções e cortes dentro de movimento forte (`reference/soft_cuts.py`).
+- **Matching**: só repete material quando não há outro.
+- Falta provar com o modelo verdadeiro: `python bench/agent_live.py` com `ANTHROPIC_API_KEY`.

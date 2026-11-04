@@ -50,7 +50,13 @@ def _as_dicts(content) -> list[dict]:
     return out
 
 
+_compat_mode = False  # a API recusou uma funcionalidade opcional: segue-se só com o essencial
+
+
 def request_params(messages: list[dict]) -> dict:
+    if _compat_mode:
+        return dict(model=config.AGENT_MODEL, max_tokens=config.AGENT_MAX_TOKENS, system=[{"type": "text", "text": SYSTEM_PROMPT}],
+                    tools=tool_definitions(), messages=messages, output_config={"effort": config.AGENT_EFFORT}, cache_control={"type": "ephemeral"})
     return dict(
         model=config.AGENT_MODEL, max_tokens=config.AGENT_MAX_TOKENS, betas=BETAS, fallbacks="default",
         system=[{"type": "text", "text": SYSTEM_PROMPT}], tools=tool_definitions(), messages=messages,
@@ -70,7 +76,19 @@ def _pending_tool_uses(messages: list[dict]) -> list[dict]:
 
 def _call_model(ctx, messages: list[dict]):
     """Uma resposta do modelo, com o texto e as notas de progresso a chegarem à interface em direto."""
+    global _compat_mode
     client = get_client()
+    try:
+        return _stream_once(ctx, client, messages)
+    except anthropic.BadRequestError as e:
+        if _compat_mode:
+            raise
+        log.error("a API recusou o pedido completo; a seguir só com o essencial: %s", e.message)
+        _compat_mode = True
+        return _stream_once(ctx, client, messages)
+
+
+def _stream_once(ctx, client, messages: list[dict]):
     with client.beta.messages.stream(**request_params(messages)) as stream:
         for ev in stream:
             ctx.check_cancel()
@@ -96,7 +114,7 @@ def run_turn(ctx) -> None:
     while True:
         iterations += 1
         if iterations > config.AGENT_MAX_ITERATIONS or ctx.turn_input_tokens() > config.AGENT_MAX_TURN_INPUT_TOKENS:
-            ctx.emit({"type": "error", "code": "turn_limit", "message": "Parei aqui: esta tarefa está a ficar longa de mais para uma só mensagem. Diz-me se devo continuar."})
+            ctx.emit({"type": "error", "code": "turn_limit", "message": "I've stopped here: this task is getting too long for one message. Tell me if I should continue."})
             return
         ctx.check_cancel()
         try:
@@ -107,7 +125,7 @@ def run_turn(ctx) -> None:
             log.warning("resposta com JSON ilegível: %s", e)
             cut_offs += 1
             if cut_offs > MAX_CONTINUE:
-                ctx.emit({"type": "error", "code": "bad_response", "message": "Não consegui concluir este passo. Tenta de novo, por favor."})
+                ctx.emit({"type": "error", "code": "bad_response", "message": "I couldn't finish this step. Please try again."})
                 return
             continue
         ctx.add_usage(final)
@@ -122,7 +140,7 @@ def run_turn(ctx) -> None:
             ctx.emit({"type": "assistant", "text": "\n\n".join(texts).strip()})
         if reason == "refusal":
             # nada desta resposta entra no histórico nem é executado; a próxima mensagem começa limpa
-            ctx.emit({"type": "error", "code": "refusal", "message": "Não posso ajudar com esse pedido. Se quiseres, diz-me de outra forma o que pretendes para o vídeo."})
+            ctx.emit({"type": "error", "code": "refusal", "message": "I can't help with that request. If you like, tell me another way what you want for the video."})
             return
         messages.append({"role": "assistant", "content": content})
         ctx.save_messages()
@@ -140,7 +158,7 @@ def run_turn(ctx) -> None:
                 messages.append({"role": "user", "content": "Continue."})
                 ctx.save_messages()
             if cut_offs > MAX_CONTINUE:
-                ctx.emit({"type": "error", "code": "too_long", "message": "A resposta ficou longa de mais. Pede-me um passo mais pequeno, por favor."})
+                ctx.emit({"type": "error", "code": "too_long", "message": "That response got too long. Please ask me for a smaller step."})
                 return
             continue
         if not tools:

@@ -61,6 +61,16 @@ Até aqui o vídeo continua a ser gerado na CPU do Render (`COMPUTE_PROVIDER=loc
 Atualizar o worker no futuro: no GitHub, cria uma *Release* nova — o RunPod reconstrói a
 partir dela (não reconstrói sozinho a cada push).
 
+## Passo 3b — Ligar o agente de edição — VOCÊ PRECISA FAZER ISTO
+
+1. Cria uma chave em https://console.anthropic.com (API Keys) e define um limite de gastos mensal.
+2. Render → serviço `aulls-velocity-studio` → **Environment** → `ANTHROPIC_API_KEY` = a chave.
+3. Corre de novo `supabase-schema.sql` no Supabase (é idempotente; acrescenta as conversas do agente).
+4. Publica uma *Release* nova do worker (o agente usa novos tipos de trabalho).
+
+Sem a chave o agente fica desligado, a app explica-o e o modo guiado continua a funcionar.
+Detalhes e custos em `docs/AGENT.md`.
+
 ## Passo 4 — Ligar o Render ao RunPod — VOCÊ PRECISA FAZER ISTO
 
 Render → serviço `aulls-velocity-studio` → **Environment**:

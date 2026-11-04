@@ -65,7 +65,7 @@ def split_long_shots(dna: EditDNA, max_frames: int) -> EditDNA:
 
 
 def resolve_size(fmt: str, clips: list[str], ref: str) -> tuple[int, int] | None:
-    """Tamanho de trabalho (o render final escala). None = deixa o pipeline decidir (reconstrução)."""
+    """Tamanho de trabalho (o render final escala)."""
     if fmt in FORMATS:
         return FORMATS[fmt]
     if fmt == "reference":
@@ -89,11 +89,12 @@ def build_plan(ref: str, clips: list[str], dna: EditDNA, opts: BuildOptions, log
     if intact:  # sem repetir nem congelar: nenhum plano maior que o clip mais longo
         longest = max(int(probe(c).duration * dna.fps) for c in clips)
         dna = split_long_shots(dna, max(int(longest * 0.9), 30))
-    size = resolve_size(opts.format, clips, ref) if (intact or opts.format != "auto") else None
+    wanted = resolve_size(opts.format, clips, ref)
+    size = wanted if (intact or opts.format != "auto") else None
     with tempfile.TemporaryDirectory(prefix="awls_plan_") as tmp:
         res = run_make(MakeParams(
             ref=ref, clips=clips, out=os.path.join(tmp, "unused.mp4"), dna=dna, force=True, plan_only=True, intact=intact,
-            size=size, no_extend=not opts.extend or intact, tone=0.0 if intact else opts.tone, denoise=0.0 if intact else 0.5,
+            size=size, default_size=wanted, no_extend=not opts.extend or intact, tone=0.0 if intact else opts.tone, denoise=0.0 if intact else 0.5,
             no_fx=intact, reconstruct="off" if intact else "auto", **opts.extra,
         ), log=log, progress=progress)
     if not res.ok:

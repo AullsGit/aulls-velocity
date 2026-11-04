@@ -202,3 +202,13 @@ def test_texto_overlay_preservado_pelo_editor_manual():
     assert {t.style for t in edited.texts} == {"box", "watermark"}
     assert all(s.clip.audio_volume == 0.2 for s in edited.shots)
     assert isinstance(edited.texts[0], TextOverlay)
+
+
+def test_medir_uma_musica_sem_faixa_de_video(tmp_path):
+    from velocity.agent.compute import audio_job
+    path = str(tmp_path / "m.wav")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "aevalsrc='0.6*sin(2*PI*220*t)*exp(-12*mod(t,0.5))':s=44100:d=8", path], check=True)
+    r = audio_job(path)
+    assert r["has_audio"] and r["duration_s"] == 8.0
+    assert 100 <= r["bpm"] <= 130 or 200 <= r["bpm"] <= 260  # 120 batidas por minuto, ou o dobro
+    assert len(r["beats_s"]) >= 8 and r["loudness_2hz"]

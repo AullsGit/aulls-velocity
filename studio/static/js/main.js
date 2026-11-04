@@ -11,6 +11,8 @@ const ROUTES = [
   ["/auth/callback", () => import("./views/auth.js"), { public: true, bare: true, view: "callback" }],
   ["/welcome", () => import("./views/onboarding.js"), { bare: true }],
   ["/home", () => import("./views/home.js"), { tab: "home" }],
+  ["/agent", () => import("./views/agent.js"), { tab: "create" }],
+  ["/agent/:id", () => import("./views/agent.js"), { tab: "create" }],
   ["/create", () => import("./views/create.js"), { tab: "create" }],
   ["/create/:id", () => import("./views/create.js"), { tab: "create" }],
   ["/projects", () => import("./views/projects.js"), { tab: "projects" }],
@@ -60,12 +62,12 @@ window.addEventListener("awls:unauthorized", () => {
 function navLinks(active) {
   const me = state.me || {};
   const items = [
-    ["home", "/home", "home", "Home"], ["create", "/create", "plus", "Create"],
+    ["home", "/home", "home", "Home"], ["create", "/agent", "plus", "Create"],
     ["projects", "/projects", "grid", "Projects"], ["profile", "/profile", "user", "Profile"],
   ];
   const side = h("aside", { class: "sidebar" },
     h("a", { class: "brand-mark", href: "/home" }, h("img", { src: "/static/brand/logo.svg", width: 30, height: 30, alt: "" }), "AwlsVelocity"),
-    h("a", { class: "btn btn-primary btn-block side-create", href: "/create" }, icon("spark"), t("Create video")),
+    h("a", { class: "btn btn-primary btn-block side-create", href: "/agent" }, icon("spark"), t("Create video")),
     items.filter((i) => i[0] !== "create").map(([k, href, ic, label]) =>
       h("a", { class: `side-link ${active === k ? "active" : ""}`, href }, icon(ic), t(label))),
     me.is_admin ? h("a", { class: `side-link ${active === "admin" ? "active" : ""}`, href: "/admin" }, icon("shield"), t("Admin")) : null,

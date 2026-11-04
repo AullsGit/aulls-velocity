@@ -21,6 +21,7 @@ export function fitFrame(frame, resolution) {
 }
 
 export function projectHref(p) {
+  if (p.agent) return `/agent/${p.id}`;
   if (p.status === "draft" || (p.status === "failed" && !p.has_output)) return `/create/${p.id}`;
   return `/projects/${p.id}`;
 }
@@ -42,6 +43,7 @@ export function renameSheet(p, onDone) {
 export function projectMenu(p, { navigate, onChange }) {
   menuSheet([
     { icon: "film", label: t("Open"), onclick: () => navigate(projectHref(p)) },
+    !p.sources_purged ? { icon: "spark", label: t("Talk to the AI about this edit"), onclick: () => navigate(`/agent/${p.id}`) } : null,
     p.has_output && !p.sources_purged ? { icon: "edit", label: t("Edit"), onclick: () => navigate(`/edit/${p.id}`) } : null,
     p.has_output ? { icon: "download", label: t("Download"), onclick: () => { location.href = `/api/projects/${p.id}/download`; } } : null,
     { icon: "type", label: t("Rename"), onclick: () => renameSheet(p, onChange) },

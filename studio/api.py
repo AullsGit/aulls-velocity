@@ -626,7 +626,7 @@ async def emola_declare(request: Request, user: User = Depends(require_user)):
 
 # ============================================================== analytics
 _EVENT_NAMES = {"page_view", "landing_cta", "app_open", "install_prompt", "install_accepted", "share_clicked",
-                "onboarding_done", "editor_opened"}
+                "onboarding_done", "editor_opened", "agent_turn_done"}
 
 
 @router.post("/events")

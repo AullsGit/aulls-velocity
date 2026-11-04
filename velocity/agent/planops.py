@@ -308,7 +308,7 @@ def _set_cuts(rows: list[_Row], cuts_s: list[float], fps: float, total: int) -> 
 
 def _snap_to_beats(rows: list[_Row], beats: list[float], max_shift_s: float, fps: float) -> dict:
     if not beats:
-        raise OpError("snap_cuts_to_beats: a referência não tem batidas detetadas")
+        raise OpError("snap_cuts_to_beats: ainda não há batidas medidas para esta música (corre analyze_audio)")
     total = sum(r.n for r in rows)
     edges, moved = [0], 0
     cursor = 0

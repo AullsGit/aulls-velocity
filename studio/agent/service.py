@@ -44,6 +44,7 @@ class TurnContext:
         self.state: dict = thread.get("state") or {}
         self.events: list[dict] = thread.get("events") or []
         self.usage: dict = thread.get("usage") or {}
+        self.rev = max((e.get("rev", 0) for e in self.events), default=0)  # cada evento novo ou alterado sobe: a app só pede o que mudou
         self.turn_counters: dict = {}
         self._turn_input = 0
         self.cancel_flag = service._cancel.setdefault(self.project_id, threading.Event())
@@ -73,7 +74,8 @@ class TurnContext:
 
     # ---- eventos para a interface
     def emit(self, ev: dict) -> None:
-        ev = {"seq": len(self.events) + 1, "ts": round(_now(), 2), **ev}
+        self.rev += 1
+        ev = {"seq": len(self.events) + 1, "rev": self.rev, "ts": round(_now(), 2), **ev}
         self.events.append(ev)
         self._store().update_thread(self.project_id, {"events": self.events[-2000:]})
 
@@ -98,7 +100,8 @@ class TurnContext:
         self.svc._live.setdefault(self.project_id, {}).pop("tool", None)
         for ev in reversed(self.events):
             if ev.get("type") == "tool" and ev.get("id") == tool_id:
-                ev.update(status="done" if ok else ("cancelled" if cancelled else "error"), seconds=round(seconds, 1))
+                self.rev += 1
+                ev.update(rev=self.rev, status="done" if ok else ("cancelled" if cancelled else "error"), seconds=round(seconds, 1))
                 if images:
                     ev["images"] = [{"path": i["path"], "label": i.get("label")} for i in images]
                 if error:
@@ -119,7 +122,8 @@ class TurnContext:
                                     credits=credits, profile=profile, idem_key=f"agent:{self.project_id}:{tool_use_id}")
         job_id = job["id"]
         self._active_job = job_id
-        t0 = _now()
+        t0 = last_refresh = _now()
+        push = jobs.provider.push_updates
         try:
             while True:
                 j = self._store().get_job(job_id)
@@ -132,7 +136,8 @@ class TurnContext:
                 except TurnCancelled:
                     jobs.cancel(self.user_id, job_id)
                     raise
-                if not jobs.provider.push_updates:
+                if not push and _now() - last_refresh >= 3.0:
+                    last_refresh = _now()
                     jobs.refresh(job_id)
                 tool = self.svc._live.get(self.project_id, {}).get("tool")
                 if tool is not None:
@@ -140,12 +145,23 @@ class TurnContext:
                 if _now() - t0 > config.AGENT_TOOL_TIMEOUT_S:
                     jobs.cancel(self.user_id, job_id)
                     raise ToolFailure("este passo demorou demasiado e foi cancelado")
-                time.sleep(0.5)
+                time.sleep(0.5 if push else 1.5)
         finally:
             self._active_job = None
         if j["status"] != "COMPLETED":
             raise ToolFailure(f"o trabalho falhou: {j.get('error_detail') or j.get('error_message') or j['status']}"[:600])
         return j
+
+    def wait_upload_analysis(self, timeout_s: float = 600.0) -> None:
+        t0 = _now()
+        while _now() - t0 < timeout_s:
+            active = [j for j in self._store().list_jobs(project_id=self.project_id, statuses=("QUEUED", "PROCESSING"), limit=10) if j["kind"] == "analyze"]
+            if not active:
+                return
+            self.check_cancel()
+            if not self.svc.jobs().provider.push_updates:
+                self.svc.jobs().refresh(active[0]["id"])
+            time.sleep(1.0)
 
     def output_paths(self, job: dict) -> tuple[str, str]:
         return self.svc.jobs().output_paths(job)
@@ -267,6 +283,7 @@ class AgentService:
         self._cancel: dict[str, threading.Event] = {}
         self._live: dict[str, dict] = {}
         self._running: set[str] = set()
+        self._ctx: dict[str, TurnContext] = {}  # turnos a correr neste processo: a app acompanha-os sem ir à base de dados
         self._lock = threading.Lock()
         self._sem = threading.Semaphore(max(1, config.AGENT_MAX_CONCURRENT_TURNS))
 
@@ -292,12 +309,13 @@ class AgentService:
         thread = self.get_or_create(user_id, pid)
         with self._lock:
             if pid in self._running or thread["status"] == "running":
-                raise ApiError(409, "agent_busy", "Ainda estou a trabalhar no pedido anterior. Espera um momento ou carrega em parar.")
+                raise ApiError(409, "agent_busy", "I'm still working on your last request. Wait a moment or press stop.")
             self._running.add(pid)
         try:
             events = thread.get("events") or []
             messages = thread.get("messages") or []
-            events.append({"seq": len(events) + 1, "ts": round(_now(), 2), "type": "user", "text": text})
+            rev = max((e.get("rev", 0) for e in events), default=0) + 1
+            events.append({"seq": len(events) + 1, "rev": rev, "ts": round(_now(), 2), "type": "user", "text": text})
             messages.append({"role": "user", "content": [{"type": "text", "text": self._project_block(user_id, project, thread)}, {"type": "text", "text": text}]})
             self.store.update_thread(pid, {"status": "running", "messages": messages, "events": events})
         except Exception:
@@ -317,23 +335,24 @@ class AgentService:
             ctx = None
             try:
                 ctx = TurnContext(self, self.store.get_thread(project_id), user_id)
+                self._ctx[project_id] = ctx
                 agent_loop.run_turn(ctx)
             except TurnCancelled:
                 if ctx is not None:
                     ctx.emit({"type": "cancelled"})
             except (anthropic.AuthenticationError, anthropic.PermissionDeniedError):
                 log.exception("credenciais da Anthropic recusadas")
-                self._fail(ctx, "agent_unavailable", "O agente está indisponível de momento. Tenta mais tarde.")
+                self._fail(ctx, "agent_unavailable", "The agent is unavailable right now. Please try later.")
             except anthropic.RateLimitError:
-                self._fail(ctx, "rate_limited", "Estou com muitos pedidos agora. Tenta de novo daqui a um minuto.")
+                self._fail(ctx, "rate_limited", "I'm getting a lot of requests right now. Please try again in a minute.")
             except anthropic.APIConnectionError:
-                self._fail(ctx, "connection", "Perdi a ligação ao modelo. Tenta de novo.")
+                self._fail(ctx, "connection", "I lost the connection to the model. Please try again.")
             except anthropic.APIStatusError as e:
                 log.error("erro da API do modelo (%s): %s", e.status_code, e.message)
-                self._fail(ctx, "model_error", "O modelo respondeu com um erro. Tenta de novo.")
+                self._fail(ctx, "model_error", "The model returned an error. Please try again.")
             except Exception:
                 log.exception("turno do agente falhou (%s)", project_id)
-                self._fail(ctx, "internal", "Algo correu mal do meu lado. Tenta de novo.")
+                self._fail(ctx, "internal", "Something went wrong on my side. Please try again.")
             finally:
                 self._finish(project_id)
 
@@ -344,6 +363,7 @@ class AgentService:
     def _finish(self, project_id: str) -> None:
         with self._lock:
             self._running.discard(project_id)
+        self._ctx.pop(project_id, None)
         self._live.pop(project_id, None)
         try:
             if self.store.get_thread(project_id):
@@ -370,17 +390,27 @@ class AgentService:
 
     # ---------------------------------------------------------------- para a app
     def view(self, thread: dict, after: int = 0) -> dict:
+        """`after`: a última alteração que a app já tem. URLs assinadas só para o que vai na resposta
+        (cada assinatura é um pedido ao armazenamento, e a app pergunta várias vezes por segundo)."""
         pid = thread["project_id"]
-        events = [e for e in thread.get("events") or [] if e.get("seq", 0) > after][:MAX_EVENTS_RETURNED]
-        out_events = [self._event_view(e) for e in events]
-        versions = {}
-        for v in (thread.get("state") or {}).get("versions") or []:
-            if v.get("presented") and v.get("output_path"):
-                versions[v["id"]] = self._version_view(pid, v)
-        running = pid in self._running or thread["status"] == "running"
+        all_events = thread.get("events") or []
+        changed = [e for e in all_events if e.get("rev", e.get("seq", 0)) > after][:MAX_EVENTS_RETURNED]
+        out_events = [self._event_view(e) for e in changed]
+        wanted = {e["version"] for e in changed if e.get("type") == "video"}
+        versions = {v["id"]: self._version_view(pid, v) for v in (thread.get("state") or {}).get("versions") or []
+                    if v["id"] in wanted and v.get("presented") and v.get("output_path")}
+        running = pid in self._running or thread.get("status") == "running"
         live = self._live.get(pid) or {}
         return {"status": "running" if running else "idle", "events": out_events, "versions": versions,
-                "live": {k: live.get(k) for k in ("text", "status", "tool")} if running else None, "last_seq": (thread.get("events") or [{}])[-1].get("seq", 0)}
+                "live": {k: live.get(k) for k in ("text", "status", "tool")} if running else None,
+                "last_rev": max((e.get("rev", e.get("seq", 0)) for e in all_events), default=0)}
+
+    def fast_view(self, project_id: str, user_id: str, after: int) -> dict | None:
+        """O mesmo que `view`, a partir da memória, para um turno a correr neste processo."""
+        ctx = self._ctx.get(project_id)
+        if ctx is None or ctx.user_id != user_id:
+            return None
+        return self.view({"project_id": project_id, "status": "running", "events": list(ctx.events), "state": ctx.state}, after)
 
     def _signed(self, bucket: str, path: str | None, expires: int = 3 * 3600) -> str | None:
         if not path:

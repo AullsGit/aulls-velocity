@@ -278,6 +278,9 @@ def test_conversa_completa_com_correcao(env, media):
     assert report["n_shots"] >= 4 and report["audio"]["has_audio"]
     assert [] == [x for x in results.values() if x.get("is_error")], [x for x in results.values() if x.get("is_error")]
 
+    # acompanhar um turno não passa pela base de dados, e só vem o que mudou
+    assert c.get(f"/api/agent/threads/{pid}?after={th['last_rev']}").json()["thread"]["events"] == []
+
     # o vídeo é mesmo aquilo que foi pedido
     vid = captured["final"]
     url = v["thread"]["versions"][vid]["url"]
@@ -467,3 +470,57 @@ def test_reinicio_a_meio_retoma_sem_cobrar_nem_repetir(env, media):
     assert len(store.get_thread(pid)["state"]["versions"]) == 1
     assert store.balance(uid) == credits0 - 1
     assert sum(1 for j in store.list_jobs(project_id=pid, limit=50) if j["kind"] == "agent_render") == 1
+
+
+def test_recriar_o_estilo_com_musica_propria_e_cor_da_referencia(env, media, tmp_path):
+    store, app = env
+    c = TestClient(app, base_url="http://testserver")
+    signup(c)
+    pid, a, b = new_project(c, media)
+    music = str(tmp_path / "musica.wav")
+    _ff(["-f", "lavfi", "-i", "aevalsrc='0.5*sin(2*PI*330*t)*exp(-10*mod(t,0.4))':s=44100:d=10", music])
+    data = open(music, "rb").read()
+    r = c.post(f"/api/projects/{pid}/files", json={"kind": "music", "name": "musica.wav", "size": len(data), "duration_s": 10.0})
+    assert c.put(r.json()["upload"]["url"], files={"file": ("musica.wav", io.BytesIO(data), "audio/wav")}).status_code == 200
+    mid = r.json()["file"]["id"]
+    assert c.post(f"/api/projects/{pid}/files/{mid}/complete").status_code == 200
+
+    def render_check(messages):
+        rs = tool_results(messages)
+        version = next(json.loads(_text_of(x))["version"] for x in rs.values() if '"version"' in _text_of(x))
+        return reply(tool("verify_output", version=version), tool("view_frames", source=version, times_s=[1.0, 2.0]))
+
+    model = ScriptedModel([
+        reply(tool("analyze_audio", source=mid)),
+        reply(tool("build_edit", mode="style", audio=mid, match_color=0.7, format="1:1")),
+        reply(tool("update_plan", ops=[{"op": "snap_cuts_to_beats", "max_shift_s": 0.3}, {"op": "set_transition", "index": 1, "type": "dissolve", "duration_s": 0.4},
+                                       {"op": "update_shot", "index": 0, "zoom_start": 1.0, "zoom_end": 1.4, "speed_curve": [1, 2, 0.5]},
+                                       {"op": "set_effects", "add": [{"type": "zoom_punch", "at_s": 1.5, "duration_s": 0.3, "magnitude": 0.15}, {"type": "flash", "at_s": 3.0, "duration_s": 0.2}]},
+                                       {"op": "add_text", "text": "TITULO", "start_s": 0.2, "end_s": 1.5}])),
+        reply(tool("render", quality="preview")),
+        render_check,
+        reply(tool("render", quality="preview", variant="no_music")),
+        reply(text("Pronto.")),
+    ])
+    agent_loop.set_client(model)
+    assert c.post(f"/api/agent/threads/{pid}/messages", json={"text": "Recria o estilo com a minha música"}).status_code == 200
+    wait(c, pid)
+    res = tool_results(store.get_thread(pid)["messages"])
+    assert not [x for x in res.values() if x.get("is_error")], [_text_of(x) for x in res.values() if x.get("is_error")]
+    audio = next(json.loads(_text_of(x)) for x in res.values() if '"beats_s"' in _text_of(x))
+    assert audio["has_audio"] and audio["bpm"] and len(audio["beats_s"]) > 5
+    th = store.get_thread(pid)
+    assert th["state"]["grade"] and th["state"]["beats"] == audio["beats_s"]
+    versions = th["state"]["versions"]
+    assert [v["variant"] for v in versions] == ["main", "no_music"] and all(v["credits"] == 0 for v in versions)
+    assert versions[0]["resolution"] == "540x540"  # o formato pedido, à resolução da pré-visualização
+    plan = versions[0]["plan"]
+    assert plan["look"]["matrix"]
+    assert {t["kind"] for t in plan["tracks"]} == {"video", "audio", "text"}
+    verify = next(json.loads(_text_of(x)) for x in res.values() if '"issues"' in _text_of(x))
+    assert verify["ok"], verify
+    st = storage.get_storage()
+    for v in versions:
+        streams = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type", "-of", "json", st.local_path("outputs", v["output_path"])],
+                                            capture_output=True, text=True).stdout)["streams"]
+        assert {x["codec_type"] for x in streams} == {"video", "audio"}

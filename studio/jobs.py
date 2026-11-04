@@ -240,7 +240,7 @@ class JobService:
         bucket, _, path = key.partition("/")
         prefix = f"{project['user_id']}/{project['id']}/"
         if bucket not in ("uploads", "outputs") or not path.startswith(prefix):
-            raise ApiError(403, "forbidden", "Este ficheiro não pertence ao projeto.")
+            raise ApiError(403, "forbidden", "This file doesn't belong to the project.")
         local = self.storage.local_path(bucket, path) if getattr(self.storage, "is_local", False) else None
         return {"key": key, "name": path.rsplit("/", 1)[-1], "url": self.storage.signed_url(bucket, path, 6 * 3600), "local_path": local}
 

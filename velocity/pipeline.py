@@ -58,6 +58,7 @@ class MakeParams:
     audio_ref: bool = True  # sem --music, usa o áudio da referência (loop automático se estendido)
     profile: str = "standard"
     size: tuple[int, int] | None = None  # None = usa o perfil
+    default_size: tuple[int, int] | None = None  # em vez do perfil, quando nada obriga a outro (a reconstrução segue a referência)
     crf: int | None = None
     preset: str | None = None
     fx_iters: int | None = None
@@ -99,7 +100,7 @@ class MakeResult:
 def _resolve(p: MakeParams) -> MakeParams:
     prof = PROFILES.get(p.profile, PROFILES["standard"])
     if p.size is None:
-        p.size = prof["size"]
+        p.size = p.default_size or prof["size"]
     if p.crf is None:
         p.crf = prof["crf"]
     if p.preset is None:
@@ -118,6 +119,16 @@ def _recon_fallback(dna, size) -> object:
     effects, _ = plan_effects(dna, dna.cut_frames())
     return Timeline(fps=dna.fps, width=size[0], height=size[1], n_frames=dna.n_frames, shots=[], effects=effects,
                     fx_events=dna.fx_events)
+
+
+def _fit_dissolves(tl) -> None:
+    """Uma dissolução vive dos dois lados do corte: a janela medida na referência tem de caber nos
+    planos que ela junta na edição (que podem ser mais curtos)."""
+    for prev, sh in zip(tl.shots, tl.shots[1:]):
+        t = sh.transition_in
+        if t is not None and t.type == "dissolve":
+            t.start_frame = max(t.start_frame, t.cut_frame - prev.n_frames)
+            t.end_frame = min(t.end_frame, t.cut_frame + sh.n_frames)
 
 
 def _make_intact(tl, durations: dict[str, float]) -> None:
@@ -261,6 +272,7 @@ def _run_make(p: MakeParams, log, progress, meter) -> MakeResult:
     elif not p.music and p.audio_ref and dna_ext.audio.has_audio:
         tl.music_path, tl.music_offset_s = p.ref, 0.0
         info = {**info, "audio": "da referência (loop automático)" if ext_info.get("acao") == "repetida" else "da referência"}
+    _fit_dissolves(tl)
     if p.intact:
         _make_intact(tl, {c.path: c.duration_s for c in clips})
     tlog(f"plano feito; música: {tl.music_path and os.path.basename(tl.music_path)}")

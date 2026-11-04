@@ -80,9 +80,13 @@ async def create_thread(request: Request, user: User = Depends(require_user)):
 
 
 @router.get("/threads/{project_id}")
-def get_thread(project_id: str, after: int = 0, user: User = Depends(require_user)):
-    p = _own_project(project_id, user)
+def get_thread(project_id: str, after: int = 0, light: int = 0, user: User = Depends(require_user)):
     svc = service()
+    if light:  # a app a acompanhar um turno: nada de ir à base de dados várias vezes por segundo
+        v = svc.fast_view(project_id, user.id, after)
+        if v is not None:
+            return {"thread": v}
+    p = _own_project(project_id, user)
     t = svc.get_or_create(user.id, p["id"])
     return {"thread": svc.view(t, after), "project": project_view(p, full=True), "credits": get_store().balance(user.id)}
 
@@ -90,13 +94,13 @@ def get_thread(project_id: str, after: int = 0, user: User = Depends(require_use
 @router.post("/threads/{project_id}/messages")
 async def post_message(project_id: str, request: Request, user: User = Depends(require_user)):
     if not config.AGENT_ENABLED:
-        raise ApiError(503, "agent_disabled", "O agente ainda não está ligado neste servidor.")
+        raise ApiError(503, "agent_disabled", "The AI agent isn't switched on yet on this server.")
     p = _own_project(project_id, user)
     text = str((await request.json()).get("text") or "").strip()
     if not text:
-        raise ApiError(400, "empty_message", "Escreve o que queres fazer.")
+        raise ApiError(400, "empty_message", "Tell me what you want to do.")
     if len(text) > MAX_MESSAGE_CHARS:
-        raise ApiError(400, "message_too_long", f"Mensagem demasiado longa (máximo {MAX_MESSAGE_CHARS} caracteres).")
+        raise ApiError(400, "message_too_long", f"That message is too long (maximum {MAX_MESSAGE_CHARS} characters).")
     _limit(f"agent:{user.id}", config.RATE_AGENT_TURNS_PER_HOUR, 3600)
     store = get_store()
     if store.balance(user.id) <= 0:  # quem ainda não comprou também pode experimentar, com um limite (cada turno custa dinheiro)
@@ -120,7 +124,7 @@ def download_version(project_id: str, version_id: str, user: User = Depends(requ
     t = get_store().get_thread(p["id"]) or {}
     v = next((x for x in (t.get("state") or {}).get("versions") or [] if x["id"] == version_id), None)
     if not v or not v.get("output_path") or not v.get("presented"):
-        raise ApiError(404, "not_found", "Esta versão já não está disponível.")
+        raise ApiError(404, "not_found", "This version isn't available anymore.")
     suffix = "-sem-musica" if v.get("variant") == "no_music" else ""
     url = get_storage().signed_url("outputs", v["output_path"], 600, f"{p['name'] or 'awlsvelocity'}{suffix}.mp4")
     get_store().track("download", user.id, None, {"via": "agent"})

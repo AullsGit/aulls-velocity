@@ -91,7 +91,8 @@ export async function render(ctx) {
           h("div", { class: "stat" }, h("b", { class: "mono", text: (project.resolution || "—").replace("x", "×") }), h("span", { text: t("Resolution") })),
           h("div", { class: "stat" }, h("b", { text: fmt.label }), h("span", { text: t("Format") }))),
         h("div", { class: "actions-grid" },
-          project.can_edit ? h("a", { class: "btn btn-primary", href: `/edit/${project.id}` }, icon("edit"), t("Edit")) : null,
+          !project.sources_purged ? h("a", { class: "btn btn-primary", href: `/agent/${project.id}` }, icon("spark"), t("Ask the AI for changes")) : null,
+          project.can_edit ? h("a", { class: "btn", href: `/edit/${project.id}` }, icon("edit"), t("Edit")) : null,
           h("a", { class: "btn", href: `/api/projects/${project.id}/download`, download: "" }, icon("download"), t("Download")),
           h("button", { class: "btn", onclick: () => shareSheet(project) }, icon("share"), t("Share")),
           project.files.some((f) => f.kind === "reference" && f.uploaded) && !project.sources_purged

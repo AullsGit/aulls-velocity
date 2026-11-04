@@ -192,6 +192,8 @@ def check_media(plan: Plan, probe_fn=None) -> list[Issue]:
         if not os.path.exists(s.uri):
             out.append(Issue("error", "missing_file", f"sources/{sid}", f"ficheiro não encontrado: {s.uri}"))
             continue
+        if s.kind == "audio":  # música não tem faixa de imagem; aqui basta existir
+            continue
         try:
             infos[sid] = probe_fn(s.uri)
         except Exception as e:  # noqa: BLE001 — ficheiro corrompido/ilegível é um problema do plano, não um crash
