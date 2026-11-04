@@ -21,6 +21,7 @@ JOB_ERRORS = {
     "no_sources": "Add at least one of your own videos. Your credits were refunded.",
     "file_too_large": "One of your files is too large. Your credits were refunded.",
     "missing_source": "The original clips for this project have expired, so it can't be re-exported.",
+    "invalid_plan": "This edit can't be rendered as it is. Undo the last change and try again.",
     "interrupted": "The server restarted while creating your video. Your credits were refunded — please try again.",
     "internal": GENERIC,
     "timeout": GENERIC,

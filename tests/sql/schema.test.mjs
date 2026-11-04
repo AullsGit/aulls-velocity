@@ -38,6 +38,15 @@ const bal = async (db, u) => (await one(db, 'select paid_credits c from profiles
   ok((await one(db, "select grant_credits($1,3,'admin','t','k1') g", [U1])).g === true, 'A: grant de 3 créditos');
   ok((await one(db, "select grant_credits($1,3,'admin','t','k1') g", [U1])).g === false, 'A: grant repetido (mesma chave) é ignorado');
   ok(await bal(db, U1) === 3, 'A: saldo = 3');
+  const proj = (await one(db, "insert into projects(user_id,name) values ($1,'p') returning id", [U1])).id;
+  await db.query("insert into agent_threads(project_id,user_id) values ($1,$2)", [proj, U1]);
+  const th = await one(db, 'select status,messages,events,state from agent_threads where project_id=$1', [proj]);
+  ok(th.status === 'idle' && Array.isArray(th.messages) && Array.isArray(th.events), 'A: conversa do agente criada com os valores por defeito');
+  ok((await one(db, "select relrowsecurity r from pg_class where relname='agent_threads'")).r === true, 'A: conversas do agente com RLS ligado');
+  ok(Array.isArray((await one(db, 'select agent_memory m from profiles where id=$1', [U1])).m), 'A: perfil tem memória do agente');
+  ok((await one(db, "select value v from app_config where key='schema_version'")).v === 4, 'A: schema_version = 4');
+  await db.query('delete from projects where id=$1', [proj]);
+  ok((await one(db, 'select count(*)::int n from agent_threads where project_id=$1', [proj])).n === 0, 'A: apagar o projeto apaga a conversa');
   await db.query("insert into jobs(id,user_id,credits_used) values ('j1',$1,2),('j2',$1,5)", [U1]);
   ok((await one(db, "select spend_credits($1,5,'j2') s", [U1])).s === false, 'A: gastar 5 com saldo 3 -> recusado');
   ok((await one(db, "select spend_credits($1,2,'j1') s", [U1])).s === true, 'A: gastar 2 -> ok');

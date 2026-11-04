@@ -88,3 +88,49 @@ def load_audio(path: str, sr: int = 22050) -> np.ndarray | None:
     if r.returncode != 0:
         raise RuntimeError(f"ffmpeg áudio falhou para {path}: {r.stderr[-500:].decode(errors='replace')}")
     return np.frombuffer(r.stdout, dtype=np.float32).copy()
+
+
+def _range_cmd(path: str, width: int, h: int, fps: float, start_frame: int, n: int | None, rgb: bool) -> list[str]:
+    cmd = ["ffmpeg", "-v", "error"]
+    if start_frame > 0:
+        cmd += ["-ss", f"{(start_frame - 0.25) / fps:.6f}"]
+    cmd += ["-i", path, "-an", "-vf", f"fps={fps},scale={width}:{h}:flags=area,format={'rgb24' if rgb else 'gray'}"]
+    if n:
+        cmd += ["-frames:v", str(int(n))]
+    return cmd + ["-f", "rawvideo", "-"]
+
+
+def iter_range(path: str, width: int, fps: float, start_frame: int = 0, n: int | None = None, rgb: bool = True,
+               height: int | None = None):
+    """Como decode_range, mas frame a frame (sem guardar tudo em memória)."""
+    h = height or max(2, int(round(width / probe(path).aspect / 2)) * 2)
+    size = width * h * (3 if rgb else 1)
+    shape = (h, width, 3) if rgb else (h, width)
+    p = subprocess.Popen(_range_cmd(path, width, h, fps, start_frame, n, rgb), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    try:
+        while True:
+            buf = p.stdout.read(size)
+            if len(buf) < size:
+                break
+            yield np.frombuffer(buf, np.uint8).reshape(shape)
+    finally:
+        p.stdout.close()
+        p.kill()
+        p.wait()
+        p.stderr.close()
+
+
+def decode_range(path: str, width: int, fps: float, start_frame: int = 0, n: int | None = None, rgb: bool = True,
+                 height: int | None = None) -> np.ndarray:
+    """Frames [n,h,w(,3)] à taxa `fps`, a partir do frame `start_frame` (exato: o seek fica a
+    1/4 de frame antes do alvo, e o filtro fps à taxa nativa é a identidade num CFR).
+    `height` força a altura (sem ela: proporcional, par)."""
+    h = height or max(2, int(round(width / probe(path).aspect / 2)) * 2)
+    r = subprocess.run(_range_cmd(path, width, h, fps, start_frame, n, rgb), capture_output=True, timeout=900)
+    if r.returncode != 0:
+        raise RuntimeError(f"decode falhou {path}: {r.stderr[-300:].decode(errors='replace')}")
+    c = 3 if rgb else 1
+    buf = np.frombuffer(r.stdout, np.uint8)
+    k = buf.size // (width * h * c)
+    shape = (k, h, width, 3) if rgb else (k, h, width)
+    return buf[: k * width * h * c].reshape(shape)

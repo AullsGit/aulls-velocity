@@ -4,13 +4,14 @@
 
 Contrato (dict JSON, sem dependências do backend):
   payload = {
-    "kind": "analyze" | "generate" | "render_edit",
+    "kind": "analyze" | "generate" | "render_edit" | "agent_*" (ver _agent),
     "job_id": str,
     "inputs": {"reference": Item, "sources": [Item], "music": Item | None}   # analyze/generate
             | {"files": {key: Item}}                                         # render_edit
     "params": {...}, "limits": {...},
     "reference_dna": dict | None,   # análise já feita (generate)
-    "timeline": dict | None,        # render_edit (caminhos = chaves de `files`)
+    "plan": dict | None,            # render_edit: Plano v1 (velocity/plan; uris = chaves de `files`)
+    "timeline": dict | None,        # render_edit: formato antigo (API anterior ao Plano) — aceite
     "outputs": {"video": Target, "thumbnail": Target},
   }
   Item   = {"key": str, "name": str, "url": str, "local_path": str | None}
@@ -56,8 +57,10 @@ def run(payload: dict, progress=None) -> dict:
             out = _analyze(payload, tmp, progress)
         elif kind == "generate":
             out = _generate(payload, tmp, progress)
-        elif kind == "render_edit":
+        elif kind in ("render_edit", "agent_render"):
             out = _render_edit(payload, tmp, progress)
+        elif kind and kind.startswith("agent_"):
+            out = _agent(payload, tmp, progress)
         else:
             return {"ok": False, "error_code": "bad_request", "detail": f"kind desconhecido: {kind}"}
         out.setdefault("metrics", {})["worker_wall_s"] = round(time.time() - t0, 2)
@@ -257,6 +260,7 @@ def _generate(payload: dict, tmp: str, progress) -> dict:
         s.clip.source_path = key_of.get(s.clip.source_path, s.clip.source_path)
     if tl.music_path:
         tl.music_path = key_of.get(tl.music_path, tl.music_path)
+    plan = res.plan.map_uris(lambda u: key_of.get(u, u))
 
     progress("finalizing", 0.96)
     thumb = _thumbnail(out, tmp)
@@ -264,56 +268,124 @@ def _generate(payload: dict, tmp: str, progress) -> dict:
     _put(payload["outputs"]["thumbnail"], thumb, "image/jpeg")
     progress("finalizing", 1.0)
     return {
-        "timeline": json.loads(tl.model_dump_json()),
+        "plan": json.loads(plan.model_dump_json()),
+        "timeline": json.loads(tl.model_dump_json()),  # para uma API anterior ao Plano (deploys desfasados)
         "duration_s": round(res.duration_s or 0.0, 2),
         "resolution": f"{tl.width}x{tl.height}",
         "fidelity": res.fidelity,
         "detector": {"score": res.detector.score, "is_velocity": res.detector.is_velocity} if res.detector else None,
-        "metrics": {"timings_s": res.timings, "fidelity": res.fidelity, "vibe": res.vibe_score,
+        "metrics": {"timings_s": res.timings, "resources": res.resources, "fidelity": res.fidelity, "vibe": res.vibe_score,
                     "sources": len(sources), "log_tail": log_lines[-8:]},
     }
 
 
 # ------------------------------------------------------------- re-render do editor
 def _render_edit(payload: dict, tmp: str, progress) -> dict:
-    from velocity.render.compositor import render
+    from velocity.engine import PlanRejected, choose_engine
     from velocity.pipeline import PROFILES
-    from velocity.schemas.timeline import Timeline
+    from velocity.plan import check_media, errors, load_plan, plan_to_timeline, validate_plan
 
     lim = payload.get("limits", {})
     max_bytes = int(lim.get("max_upload_mb", 50)) * 1024 * 1024
-    tl = Timeline.model_validate(payload["timeline"])
+    doc = payload.get("plan") or payload["timeline"]
+    plan = load_plan(doc)
+    engine = choose_engine(plan)
+    issues = errors(validate_plan(plan) + engine.validate(plan))
+    if issues:
+        raise UserError("invalid_plan", "; ".join(str(i) for i in issues[:3]))
     files = payload["inputs"]["files"]
     progress("preparing_edit", 0.05)
     local: dict[str, str] = {}
-    needed = {s.clip.source_path for s in tl.shots} | ({tl.music_path} if tl.music_path else set())
-    for key in needed:
+    for key in {s.uri for s in plan.sources.values()}:
         if key not in files:
             raise UserError("missing_source", "um ficheiro-fonte do projeto já não está disponível")
         p = _fetch(files[key], tmp, max_bytes)
         if os.path.splitext(p)[1].lower() in IMAGE_EXT:
             p = _still_to_clip(p, tmp)
         local[key] = p
-    edited = tl.model_copy(deep=True)
-    for s in edited.shots:
-        s.clip.source_path = local[s.clip.source_path]
-    if edited.music_path:
-        edited.music_path = local[edited.music_path]
+    edited = plan.map_uris(lambda u: local[u])
+    media = errors(check_media(edited))
+    if media:
+        raise UserError("invalid_media", "; ".join(str(i) for i in media[:3]))
 
-    prof = PROFILES.get(payload.get("params", {}).get("profile", "standard"), PROFILES["standard"])
+    params = payload.get("params", {})
+    prof = PROFILES.get(params.get("profile", "standard"), PROFILES["standard"])
     out = os.path.join(tmp, "out.mp4")
     t = time.time()
     progress("rendering", 0.1)
-    render(edited, out, crf=prof["crf"], preset=prof["preset"],
-           progress=lambda i, n: progress("rendering", 0.1 + 0.8 * i / n))
+    try:
+        engine.render(edited, out, crf=params.get("crf", prof["crf"]), preset=params.get("preset", prof["preset"]),
+                      progress=lambda i, n: progress("rendering", 0.1 + 0.8 * i / n))
+    except PlanRejected as e:
+        raise UserError("invalid_plan", str(e)[:300])
     render_s = round(time.time() - t, 2)
     progress("finalizing", 0.92)
     thumb = _thumbnail(out, tmp)
     _put(payload["outputs"]["video"], out, "video/mp4")
     _put(payload["outputs"]["thumbnail"], thumb, "image/jpeg")
+    o = plan.output
     return {
-        "timeline": payload["timeline"],
-        "duration_s": round(tl.n_frames / tl.fps, 2),
-        "resolution": f"{tl.width}x{tl.height}",
-        "metrics": {"timings_s": {"render": render_s}},
+        "plan": json.loads(plan.model_dump_json()),
+        "timeline": json.loads(plan_to_timeline(plan).model_dump_json()),
+        "duration_s": round(o.duration_frames / o.fps, 2),
+        "resolution": f"{o.width}x{o.height}",
+        "metrics": {"timings_s": {"render": render_s}, "engine": engine.name},
     }
+
+
+# ------------------------------------------------------------- ferramentas do agente
+def _agent(payload: dict, tmp: str, progress) -> dict:
+    """Trabalho pesado das ferramentas do agente (velocity/agent/compute.py).
+
+    inputs = {"files": {key: Item}}; params diz que chave faz de quê; outputs.images = [Target com
+    `path`] para as folhas de frames que o agente vai ver."""
+    from velocity.agent import compute
+    from velocity.plan import load_plan
+
+    kind, params = payload["kind"], payload.get("params", {})
+    lim = payload.get("limits", {})
+    max_bytes = int(lim.get("max_upload_mb", 50)) * 1024 * 1024
+    files = payload.get("inputs", {}).get("files", {})
+    local: dict[str, str] = {}
+    key_of: dict[str, str] = {}
+    progress("preparing_edit", 0.02)
+    for key, item in files.items():
+        p = _fetch(item, tmp, max_bytes)
+        if os.path.splitext(p)[1].lower() in IMAGE_EXT:
+            p = _still_to_clip(p, tmp)
+        local[key], key_of[p] = p, key
+    images: list[dict] = []
+    t0 = time.time()
+    if kind == "agent_analyze_reference":
+        result, images = compute.analyze_reference_job(local[params["reference"]], tmp, progress, summarize,
+                                                       with_captions=bool(params.get("with_captions")), dna_doc=payload.get("reference_dna"))
+    elif kind == "agent_captions":
+        result = compute.captions_job(local[params["reference"]], progress=progress, region=params.get("region", "bottom"),
+                                      any_text=bool(params.get("any_text")))
+    elif kind == "agent_audio":
+        result = compute.audio_job(local[params["target"]])
+    elif kind == "agent_analyze_clips":
+        result, images = compute.analyze_clips_job([(fid, local[key]) for fid, key in params["clips"]], tmp, progress)
+    elif kind == "agent_frames":
+        result, images = compute.frames_job(local[params["target"]], params["times"], tmp, params.get("label", "Frames"), params.get("cell_w"))
+    elif kind == "agent_compare":
+        result, images = compute.compare_job(local[params["a"]], local[params["b"]], [tuple(p) for p in params["pairs"]], tmp,
+                                             tuple(params.get("labels") or ("A", "B")))
+    elif kind == "agent_build":
+        r = compute.build_job(local[params["reference"]], [local[k] for k in params["clips"]], payload["reference_dna"], params.get("options") or {},
+                              log=lambda m: None, progress=progress, music=local.get(params["music"]) if params.get("music") else None)
+        plan = r.pop("plan").map_uris(lambda u: key_of.get(u, u))
+        result = {**r, "plan": json.loads(plan.model_dump_json())}
+    elif kind == "agent_verify":
+        plan = load_plan(payload["plan"]).map_uris(lambda u: local.get(u, u))
+        result = compute.verify_job(local[params["output"]], plan, payload.get("reference_dna"),
+                                    local.get(params.get("reference")) if params.get("reference") else None)
+    else:
+        raise UserError("bad_request", f"kind desconhecido: {kind}")
+    targets = (payload.get("outputs") or {}).get("images") or []
+    sent = []
+    for img, target in zip(images, targets):
+        _put(target, img["path"], "image/jpeg")
+        sent.append({"path": target["path"], "label": img["label"]})
+    progress("finalizing", 1.0)
+    return {"result": result, "images": sent, "metrics": {"timings_s": {kind: round(time.time() - t0, 2)}}}

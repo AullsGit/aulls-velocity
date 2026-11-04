@@ -1,0 +1,4520 @@
+{
+ "plan_version": "1.0",
+ "output": {
+  "width": 540,
+  "height": 960,
+  "fps": 30.0,
+  "duration_frames": 900,
+  "color_space": "bt709"
+ },
+ "sources": {
+  "s0": {
+   "uri": "uploads/exemplo/clip3.mp4",
+   "kind": "video"
+  },
+  "s1": {
+   "uri": "uploads/exemplo/clip0.mp4",
+   "kind": "video"
+  },
+  "s2": {
+   "uri": "uploads/exemplo/clip1.mp4",
+   "kind": "video"
+  },
+  "s3": {
+   "uri": "uploads/exemplo/clip2.mp4",
+   "kind": "video"
+  },
+  "s4": {
+   "uri": "uploads/exemplo/referencia.mp4",
+   "kind": "audio"
+  }
+ },
+ "tracks": [
+  {
+   "id": "V1",
+   "kind": "video",
+   "items": [
+    {
+     "type": "video",
+     "id": "v0",
+     "source": "s0",
+     "at": 0,
+     "duration": 18,
+     "time": {
+      "src_start_s": 0.1,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.0002,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0006
+       ]
+      },
+      "center": [
+       0.5,
+       0.5087719559669495
+      ],
+      "pan": [
+       0.01265,
+       0.0069
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.01,
+      "saturation": 0.972,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": null,
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v1",
+     "source": "s1",
+     "at": 18,
+     "duration": 18,
+     "time": {
+      "src_start_s": 3.7,
+      "speed": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        1.3144,
+        1.2425,
+        1.1356,
+        1.0394,
+        0.9401,
+        0.8491,
+        0.7653,
+        0.7203
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.1459,
+        0.1078,
+        0.0756,
+        0.0489,
+        0.0276,
+        0.0123,
+        0.0029,
+        0.0
+       ]
+      },
+      "center": [
+       0.6145833134651184,
+       0.3874269127845764
+      ],
+      "pan": [
+       0.0114,
+       0.0104
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.815,
+      "saturation": 1.049,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "flash",
+      "start_frame": 16,
+      "end_frame": 21,
+      "cut_frame": 18,
+      "intensity": 0.746,
+      "blur_kind": "none",
+      "peak_luma": 219.1,
+      "beat_offset_ms": -27.0,
+      "beat_index": 0.0,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0223,
+       "dy": -0.0135,
+       "zoom": -0.0517
+      },
+      "envelope": [
+       0.175,
+       0.942,
+       1.0,
+       0.343,
+       0.011
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v2",
+     "source": "s1",
+     "at": 36,
+     "duration": 9,
+     "time": {
+      "src_start_s": 0.0,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0096,
+        0.0089,
+        0.0077,
+        0.0065,
+        0.0051,
+        0.0036,
+        0.0019,
+        0.0
+       ]
+      },
+      "center": [
+       0.5,
+       0.3837719261646271
+      ],
+      "pan": [
+       0.0179,
+       0.00155
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.918,
+      "saturation": 1.022,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 36,
+      "end_frame": 37,
+      "cut_frame": 36,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -31.0,
+      "beat_index": 0.949,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0033,
+       "dy": -0.0136,
+       "zoom": 0.0111
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v3",
+     "source": "s1",
+     "at": 45,
+     "duration": 9,
+     "time": {
+      "src_start_s": 5.1,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.0004,
+        0.0008,
+        0.0013,
+        0.0017,
+        0.0021,
+        0.0025,
+        0.003
+       ]
+      },
+      "center": [
+       0.5703125,
+       0.3603801131248474
+      ],
+      "pan": [
+       0.0006,
+       0.00785
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.985,
+      "saturation": 1.05,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 45,
+      "end_frame": 46,
+      "cut_frame": 45,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": 269.0,
+      "beat_index": 1.446,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0081,
+       "dy": -0.0221,
+       "zoom": 0.0059
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v4",
+     "source": "s2",
+     "at": 54,
+     "duration": 36,
+     "time": {
+      "src_start_s": 0.6,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6553,
+        0.6421,
+        0.6265,
+        0.6219,
+        0.6234,
+        0.641,
+        0.6737,
+        0.7243
+       ]
+      },
+      "center": [
+       0.5,
+       0.14766082167625427
+      ],
+      "pan": [
+       0.04055,
+       0.12
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.163,
+      "saturation": 1.009,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 54,
+      "end_frame": 55,
+      "cut_frame": 54,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -34.0,
+      "beat_index": 1.944,
+      "direction": "none",
+      "motion": {
+       "dx": -0.018,
+       "dy": -0.0455,
+       "zoom": -0.0237
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v5",
+     "source": "s3",
+     "at": 90,
+     "duration": 18,
+     "time": {
+      "src_start_s": 5.6,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.0004,
+        0.0007,
+        0.0011,
+        0.0015,
+        0.0018,
+        0.0021,
+        0.0025
+       ]
+      },
+      "center": [
+       0.375,
+       0.37719297409057617
+      ],
+      "pan": [
+       0.00285,
+       0.00535
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.881,
+      "saturation": 0.412,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "flash",
+      "start_frame": 88,
+      "end_frame": 93,
+      "cut_frame": 90,
+      "intensity": 0.741,
+      "blur_kind": "none",
+      "peak_luma": 216.1,
+      "beat_offset_ms": -19.0,
+      "beat_index": 3.969,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0115,
+       "dy": -0.0528,
+       "zoom": 0.0456
+      },
+      "envelope": [
+       0.184,
+       0.951,
+       1.0,
+       0.332,
+       0.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v6",
+     "source": "s2",
+     "at": 108,
+     "duration": 16,
+     "time": {
+      "src_start_s": 0.5,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6219,
+        0.6274,
+        0.643,
+        0.6683,
+        0.703,
+        0.743,
+        0.7876,
+        0.8379
+       ]
+      },
+      "center": [
+       0.5,
+       0.14766082167625427
+      ],
+      "pan": [
+       0.01235,
+       0.00125
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.865,
+      "saturation": 0.986,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 108,
+      "end_frame": 109,
+      "cut_frame": 108,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -22.0,
+      "beat_index": 4.964,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0065,
+       "dy": -0.0122,
+       "zoom": -0.0034
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v7",
+     "source": "s3",
+     "at": 124,
+     "duration": 38,
+     "time": {
+      "src_start_s": 3.9,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0447,
+        0.0,
+        0.0023,
+        0.0042,
+        0.0054,
+        0.0073,
+        0.01,
+        0.0115
+       ]
+      },
+      "center": [
+       0.4739583432674408,
+       0.35087719559669495
+      ],
+      "pan": [
+       0.01035,
+       0.04975
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.031,
+      "saturation": 1.08,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "blur",
+      "start_frame": 123,
+      "end_frame": 129,
+      "cut_frame": 124,
+      "intensity": 0.892,
+      "blur_kind": "radial",
+      "peak_luma": null,
+      "beat_offset_ms": -92.7,
+      "beat_index": 5.847,
+      "direction": "zoom_in",
+      "motion": {
+       "dx": -0.0319,
+       "dy": -0.0296,
+       "zoom": 0.1092
+      },
+      "envelope": [
+       0.885,
+       1.0,
+       0.995,
+       0.664,
+       0.632,
+       0.633
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v8",
+     "source": "s3",
+     "at": 162,
+     "duration": 18,
+     "time": {
+      "src_start_s": 6.5,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.001,
+        0.0018,
+        0.0027,
+        0.0033,
+        0.0039,
+        0.0045,
+        0.0052
+       ]
+      },
+      "center": [
+       0.5130208134651184,
+       0.36549708247184753
+      ],
+      "pan": [
+       0.01095,
+       0.00465
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.035,
+      "saturation": 1.076,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 162,
+      "end_frame": 163,
+      "cut_frame": 162,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -10.0,
+      "beat_index": 7.983,
+      "direction": "none",
+      "motion": {
+       "dx": 0.0207,
+       "dy": 0.0018,
+       "zoom": 0.0217
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v9",
+     "source": "s1",
+     "at": 180,
+     "duration": 18,
+     "time": {
+      "src_start_s": 7.2,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.0002,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0006
+       ]
+      },
+      "center": [
+       0.5,
+       0.3479532301425934
+      ],
+      "pan": [
+       0.01265,
+       0.0069
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.924,
+      "saturation": 0.903,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 179,
+      "end_frame": 181,
+      "cut_frame": 180,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": 590.0,
+      "beat_index": 8.485,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0081,
+       "dy": -0.0221,
+       "zoom": 0.0059
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v10",
+     "source": "s0",
+     "at": 198,
+     "duration": 18,
+     "time": {
+      "src_start_s": 1.0,
+      "speed": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        1.3144,
+        1.2425,
+        1.1356,
+        1.0394,
+        0.9401,
+        0.8491,
+        0.7653,
+        0.7203
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.1679,
+        0.1298,
+        0.0976,
+        0.0709,
+        0.0496,
+        0.0343,
+        0.0249,
+        0.022
+       ]
+      },
+      "center": [
+       0.7161458134651184,
+       0.44736841320991516
+      ],
+      "pan": [
+       0.0114,
+       0.0104
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.834,
+      "saturation": 1.064,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "flash",
+      "start_frame": 196,
+      "end_frame": 201,
+      "cut_frame": 198,
+      "intensity": 0.746,
+      "blur_kind": "none",
+      "peak_luma": 219.1,
+      "beat_offset_ms": -27.0,
+      "beat_index": 8.978,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0223,
+       "dy": -0.0135,
+       "zoom": -0.0517
+      },
+      "envelope": [
+       0.175,
+       0.942,
+       1.0,
+       0.343,
+       0.011
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v11",
+     "source": "s2",
+     "at": 216,
+     "duration": 9,
+     "time": {
+      "src_start_s": 2.2,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.2698,
+        0.2691,
+        0.268,
+        0.2668,
+        0.2653,
+        0.2638,
+        0.2621,
+        0.2602
+       ]
+      },
+      "center": [
+       0.5,
+       0.21198830008506775
+      ],
+      "pan": [
+       0.0179,
+       0.00155
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.999,
+      "saturation": 0.987,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 216,
+      "end_frame": 217,
+      "cut_frame": 216,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -31.0,
+      "beat_index": 9.949,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0033,
+       "dy": -0.0136,
+       "zoom": 0.0111
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v12",
+     "source": "s2",
+     "at": 225,
+     "duration": 9,
+     "time": {
+      "src_start_s": 2.8,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.2672,
+        0.2676,
+        0.268,
+        0.2684,
+        0.2689,
+        0.2693,
+        0.2697,
+        0.2701
+       ]
+      },
+      "center": [
+       0.5,
+       0.21052631735801697
+      ],
+      "pan": [
+       0.0006,
+       0.00785
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.079,
+      "saturation": 1.005,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 225,
+      "end_frame": 226,
+      "cut_frame": 225,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": 269.0,
+      "beat_index": 10.446,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0081,
+       "dy": -0.0221,
+       "zoom": 0.0059
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v13",
+     "source": "s2",
+     "at": 234,
+     "duration": 36,
+     "time": {
+      "src_start_s": 0.6,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6553,
+        0.6421,
+        0.6265,
+        0.6219,
+        0.6234,
+        0.641,
+        0.6737,
+        0.7243
+       ]
+      },
+      "center": [
+       0.5,
+       0.14766082167625427
+      ],
+      "pan": [
+       0.04055,
+       0.12
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.163,
+      "saturation": 1.009,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 234,
+      "end_frame": 235,
+      "cut_frame": 234,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -34.0,
+      "beat_index": 10.944,
+      "direction": "none",
+      "motion": {
+       "dx": -0.018,
+       "dy": -0.0455,
+       "zoom": -0.0237
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v14",
+     "source": "s2",
+     "at": 270,
+     "duration": 18,
+     "time": {
+      "src_start_s": 3.9,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6726,
+        0.673,
+        0.6733,
+        0.6737,
+        0.6741,
+        0.6744,
+        0.6747,
+        0.6751
+       ]
+      },
+      "center": [
+       0.390625,
+       0.5453216433525085
+      ],
+      "pan": [
+       0.00285,
+       0.00535
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.956,
+      "saturation": 0.37,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "flash",
+      "start_frame": 268,
+      "end_frame": 273,
+      "cut_frame": 270,
+      "intensity": 0.741,
+      "blur_kind": "none",
+      "peak_luma": 216.1,
+      "beat_offset_ms": -19.0,
+      "beat_index": 12.969,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0115,
+       "dy": -0.0528,
+       "zoom": 0.0456
+      },
+      "envelope": [
+       0.184,
+       0.951,
+       1.0,
+       0.332,
+       0.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v15",
+     "source": "s2",
+     "at": 288,
+     "duration": 16,
+     "time": {
+      "src_start_s": 3.6,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6419,
+        0.6474,
+        0.663,
+        0.6883,
+        0.723,
+        0.763,
+        0.8076,
+        0.8579
+       ]
+      },
+      "center": [
+       0.3958333432674408,
+       0.5438596606254578
+      ],
+      "pan": [
+       0.01235,
+       0.00125
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.859,
+      "saturation": 0.963,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 288,
+      "end_frame": 289,
+      "cut_frame": 288,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -22.0,
+      "beat_index": 13.964,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0065,
+       "dy": -0.0122,
+       "zoom": -0.0034
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v16",
+     "source": "s3",
+     "at": 304,
+     "duration": 38,
+     "time": {
+      "src_start_s": 4.0,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0447,
+        0.0,
+        0.0023,
+        0.0042,
+        0.0054,
+        0.0073,
+        0.01,
+        0.0115
+       ]
+      },
+      "center": [
+       0.4713541567325592,
+       0.35087719559669495
+      ],
+      "pan": [
+       0.01035,
+       0.04975
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.03,
+      "saturation": 1.079,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "blur",
+      "start_frame": 303,
+      "end_frame": 309,
+      "cut_frame": 304,
+      "intensity": 0.892,
+      "blur_kind": "radial",
+      "peak_luma": null,
+      "beat_offset_ms": -92.7,
+      "beat_index": 14.847,
+      "direction": "zoom_in",
+      "motion": {
+       "dx": -0.0319,
+       "dy": -0.0296,
+       "zoom": 0.1092
+      },
+      "envelope": [
+       0.885,
+       1.0,
+       0.995,
+       0.664,
+       0.632,
+       0.633
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v17",
+     "source": "s0",
+     "at": 342,
+     "duration": 18,
+     "time": {
+      "src_start_s": 6.3,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.1681,
+        0.169,
+        0.1699,
+        0.1708,
+        0.1713,
+        0.172,
+        0.1726,
+        0.1733
+       ]
+      },
+      "center": [
+       0.3880208432674408,
+       0.3669590651988983
+      ],
+      "pan": [
+       0.01095,
+       0.00465
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.063,
+      "saturation": 1.048,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 342,
+      "end_frame": 343,
+      "cut_frame": 342,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -10.0,
+      "beat_index": 16.983,
+      "direction": "none",
+      "motion": {
+       "dx": 0.0207,
+       "dy": 0.0018,
+       "zoom": 0.0217
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v18",
+     "source": "s2",
+     "at": 360,
+     "duration": 18,
+     "time": {
+      "src_start_s": 4.9,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.3391,
+        0.3394,
+        0.3396,
+        0.3395,
+        0.3396,
+        0.3396,
+        0.3396,
+        0.3397
+       ]
+      },
+      "center": [
+       0.2708333432674408,
+       0.5687134265899658
+      ],
+      "pan": [
+       0.01265,
+       0.0069
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.109,
+      "saturation": 0.916,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 359,
+      "end_frame": 361,
+      "cut_frame": 360,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": 590.0,
+      "beat_index": 17.485,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0081,
+       "dy": -0.0221,
+       "zoom": 0.0059
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v19",
+     "source": "s1",
+     "at": 378,
+     "duration": 18,
+     "time": {
+      "src_start_s": 3.6,
+      "speed": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        1.3144,
+        1.2425,
+        1.1356,
+        1.0394,
+        0.9401,
+        0.8491,
+        0.7653,
+        0.7203
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.1459,
+        0.1078,
+        0.0756,
+        0.0489,
+        0.0276,
+        0.0123,
+        0.0029,
+        0.0
+       ]
+      },
+      "center": [
+       0.6171875,
+       0.390350878238678
+      ],
+      "pan": [
+       0.0114,
+       0.0104
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.816,
+      "saturation": 1.051,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "flash",
+      "start_frame": 376,
+      "end_frame": 381,
+      "cut_frame": 378,
+      "intensity": 0.746,
+      "blur_kind": "none",
+      "peak_luma": 219.1,
+      "beat_offset_ms": -27.0,
+      "beat_index": 17.978,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0223,
+       "dy": -0.0135,
+       "zoom": -0.0517
+      },
+      "envelope": [
+       0.175,
+       0.942,
+       1.0,
+       0.343,
+       0.011
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v20",
+     "source": "s1",
+     "at": 396,
+     "duration": 9,
+     "time": {
+      "src_start_s": 4.5,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0096,
+        0.0089,
+        0.0077,
+        0.0065,
+        0.0051,
+        0.0036,
+        0.0019,
+        0.0
+       ]
+      },
+      "center": [
+       0.5911458134651184,
+       0.37719297409057617
+      ],
+      "pan": [
+       0.0179,
+       0.00155
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.921,
+      "saturation": 1.029,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 396,
+      "end_frame": 397,
+      "cut_frame": 396,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -31.0,
+      "beat_index": 18.949,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0033,
+       "dy": -0.0136,
+       "zoom": 0.0111
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v21",
+     "source": "s2",
+     "at": 405,
+     "duration": 9,
+     "time": {
+      "src_start_s": 5.8,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.2953,
+        0.2958,
+        0.2962,
+        0.2966,
+        0.297,
+        0.2975,
+        0.2979,
+        0.2983
+       ]
+      },
+      "center": [
+       0.7408853769302368,
+       0.34210526943206787
+      ],
+      "pan": [
+       0.0006,
+       0.00785
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.156,
+      "saturation": 1.018,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 405,
+      "end_frame": 406,
+      "cut_frame": 405,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": 269.0,
+      "beat_index": 19.446,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0081,
+       "dy": -0.0221,
+       "zoom": 0.0059
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v22",
+     "source": "s2",
+     "at": 414,
+     "duration": 36,
+     "time": {
+      "src_start_s": 6.7,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0664,
+        0.0532,
+        0.0376,
+        0.033,
+        0.0345,
+        0.0521,
+        0.0848,
+        0.1354
+       ]
+      },
+      "center": [
+       0.59375,
+       0.26754385232925415
+      ],
+      "pan": [
+       0.04055,
+       0.12
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.25,
+      "saturation": 1.027,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 414,
+      "end_frame": 415,
+      "cut_frame": 414,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -34.0,
+      "beat_index": 19.944,
+      "direction": "none",
+      "motion": {
+       "dx": -0.018,
+       "dy": -0.0455,
+       "zoom": -0.0237
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v23",
+     "source": "s0",
+     "at": 450,
+     "duration": 18,
+     "time": {
+      "src_start_s": 7.2,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.0004,
+        0.0007,
+        0.0011,
+        0.0015,
+        0.0018,
+        0.0021,
+        0.0025
+       ]
+      },
+      "center": [
+       0.6848958134651184,
+       0.5233917832374573
+      ],
+      "pan": [
+       0.00285,
+       0.00535
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.898,
+      "saturation": 0.393,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "flash",
+      "start_frame": 448,
+      "end_frame": 453,
+      "cut_frame": 450,
+      "intensity": 0.741,
+      "blur_kind": "none",
+      "peak_luma": 216.1,
+      "beat_offset_ms": -19.0,
+      "beat_index": 21.969,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0115,
+       "dy": -0.0528,
+       "zoom": 0.0456
+      },
+      "envelope": [
+       0.184,
+       0.951,
+       1.0,
+       0.332,
+       0.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v24",
+     "source": "s2",
+     "at": 468,
+     "duration": 16,
+     "time": {
+      "src_start_s": 6.7,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.1371,
+        0.1427,
+        0.1582,
+        0.1835,
+        0.2182,
+        0.2583,
+        0.3029,
+        0.3531
+       ]
+      },
+      "center": [
+       0.6223958134651184,
+       0.2982456088066101
+      ],
+      "pan": [
+       0.01235,
+       0.00125
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.945,
+      "saturation": 0.991,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 468,
+      "end_frame": 469,
+      "cut_frame": 468,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -22.0,
+      "beat_index": 22.964,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0065,
+       "dy": -0.0122,
+       "zoom": -0.0034
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v25",
+     "source": "s3",
+     "at": 484,
+     "duration": 38,
+     "time": {
+      "src_start_s": 0.8,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0447,
+        0.0,
+        0.0023,
+        0.0042,
+        0.0054,
+        0.0073,
+        0.01,
+        0.0115
+       ]
+      },
+      "center": [
+       0.6380208134651184,
+       0.5263158082962036
+      ],
+      "pan": [
+       0.01035,
+       0.04975
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.058,
+      "saturation": 1.058,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "blur",
+      "start_frame": 483,
+      "end_frame": 489,
+      "cut_frame": 484,
+      "intensity": 0.892,
+      "blur_kind": "radial",
+      "peak_luma": null,
+      "beat_offset_ms": -92.7,
+      "beat_index": 23.847,
+      "direction": "zoom_in",
+      "motion": {
+       "dx": -0.0319,
+       "dy": -0.0296,
+       "zoom": 0.1092
+      },
+      "envelope": [
+       0.885,
+       1.0,
+       0.995,
+       0.664,
+       0.632,
+       0.633
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v26",
+     "source": "s1",
+     "at": 522,
+     "duration": 18,
+     "time": {
+      "src_start_s": 4.2,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.001,
+        0.0018,
+        0.0027,
+        0.0033,
+        0.0039,
+        0.0045,
+        0.0052
+       ]
+      },
+      "center": [
+       0.5911458134651184,
+       0.37865495681762695
+      ],
+      "pan": [
+       0.01095,
+       0.00465
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.033,
+      "saturation": 1.036,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 522,
+      "end_frame": 523,
+      "cut_frame": 522,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -10.0,
+      "beat_index": 25.983,
+      "direction": "none",
+      "motion": {
+       "dx": 0.0207,
+       "dy": 0.0018,
+       "zoom": 0.0217
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v27",
+     "source": "s1",
+     "at": 540,
+     "duration": 18,
+     "time": {
+      "src_start_s": 1.3,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.0002,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0006
+       ]
+      },
+      "center": [
+       0.6041666865348816,
+       0.3552631437778473
+      ],
+      "pan": [
+       0.01265,
+       0.0069
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.98,
+      "saturation": 0.97,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 539,
+      "end_frame": 541,
+      "cut_frame": 540,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": 590.0,
+      "beat_index": 26.485,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0081,
+       "dy": -0.0221,
+       "zoom": 0.0059
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v28",
+     "source": "s2",
+     "at": 558,
+     "duration": 18,
+     "time": {
+      "src_start_s": 1.3,
+      "speed": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        1.3144,
+        1.2425,
+        1.1356,
+        1.0394,
+        0.9401,
+        0.8491,
+        0.7653,
+        0.7203
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.1459,
+        0.1078,
+        0.0756,
+        0.0489,
+        0.0276,
+        0.0123,
+        0.0029,
+        0.0
+       ]
+      },
+      "center": [
+       0.5,
+       0.32163742184638977
+      ],
+      "pan": [
+       0.0114,
+       0.0104
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.895,
+      "saturation": 1.007,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "flash",
+      "start_frame": 556,
+      "end_frame": 561,
+      "cut_frame": 558,
+      "intensity": 0.746,
+      "blur_kind": "none",
+      "peak_luma": 219.1,
+      "beat_offset_ms": -27.0,
+      "beat_index": 26.978,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0223,
+       "dy": -0.0135,
+       "zoom": -0.0517
+      },
+      "envelope": [
+       0.175,
+       0.942,
+       1.0,
+       0.343,
+       0.011
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v29",
+     "source": "s2",
+     "at": 576,
+     "duration": 9,
+     "time": {
+      "src_start_s": 2.2,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.2698,
+        0.2691,
+        0.268,
+        0.2668,
+        0.2653,
+        0.2638,
+        0.2621,
+        0.2602
+       ]
+      },
+      "center": [
+       0.5,
+       0.21198830008506775
+      ],
+      "pan": [
+       0.0179,
+       0.00155
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.999,
+      "saturation": 0.987,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 576,
+      "end_frame": 577,
+      "cut_frame": 576,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -31.0,
+      "beat_index": 27.949,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0033,
+       "dy": -0.0136,
+       "zoom": 0.0111
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v30",
+     "source": "s2",
+     "at": 585,
+     "duration": 9,
+     "time": {
+      "src_start_s": 2.8,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.2672,
+        0.2676,
+        0.268,
+        0.2684,
+        0.2689,
+        0.2693,
+        0.2697,
+        0.2701
+       ]
+      },
+      "center": [
+       0.5,
+       0.21052631735801697
+      ],
+      "pan": [
+       0.0006,
+       0.00785
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.079,
+      "saturation": 1.005,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 585,
+      "end_frame": 586,
+      "cut_frame": 585,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": 269.0,
+      "beat_index": 28.446,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0081,
+       "dy": -0.0221,
+       "zoom": 0.0059
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v31",
+     "source": "s2",
+     "at": 594,
+     "duration": 36,
+     "time": {
+      "src_start_s": 0.6,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6553,
+        0.6421,
+        0.6265,
+        0.6219,
+        0.6234,
+        0.641,
+        0.6737,
+        0.7243
+       ]
+      },
+      "center": [
+       0.5,
+       0.14766082167625427
+      ],
+      "pan": [
+       0.04055,
+       0.12
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.163,
+      "saturation": 1.009,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 594,
+      "end_frame": 595,
+      "cut_frame": 594,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -34.0,
+      "beat_index": 28.944,
+      "direction": "none",
+      "motion": {
+       "dx": -0.018,
+       "dy": -0.0455,
+       "zoom": -0.0237
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v32",
+     "source": "s3",
+     "at": 630,
+     "duration": 18,
+     "time": {
+      "src_start_s": 2.7,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6219,
+        0.6222,
+        0.6225,
+        0.6229,
+        0.6233,
+        0.6237,
+        0.624,
+        0.6243
+       ]
+      },
+      "center": [
+       0.5390625,
+       0.6008771657943726
+      ],
+      "pan": [
+       0.00285,
+       0.00535
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.903,
+      "saturation": 0.415,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "flash",
+      "start_frame": 628,
+      "end_frame": 633,
+      "cut_frame": 630,
+      "intensity": 0.741,
+      "blur_kind": "none",
+      "peak_luma": 216.1,
+      "beat_offset_ms": -19.0,
+      "beat_index": 30.969,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0115,
+       "dy": -0.0528,
+       "zoom": 0.0456
+      },
+      "envelope": [
+       0.184,
+       0.951,
+       1.0,
+       0.332,
+       0.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v33",
+     "source": "s2",
+     "at": 648,
+     "duration": 16,
+     "time": {
+      "src_start_s": 0.5,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6219,
+        0.6274,
+        0.643,
+        0.6683,
+        0.703,
+        0.743,
+        0.7876,
+        0.8379
+       ]
+      },
+      "center": [
+       0.5,
+       0.14766082167625427
+      ],
+      "pan": [
+       0.01235,
+       0.00125
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.865,
+      "saturation": 0.986,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 648,
+      "end_frame": 649,
+      "cut_frame": 648,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -22.0,
+      "beat_index": 31.964,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0065,
+       "dy": -0.0122,
+       "zoom": -0.0034
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v34",
+     "source": "s0",
+     "at": 664,
+     "duration": 38,
+     "time": {
+      "src_start_s": 2.1,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.3764,
+        0.3317,
+        0.3339,
+        0.3359,
+        0.3371,
+        0.339,
+        0.3417,
+        0.3432
+       ]
+      },
+      "center": [
+       0.6536458134651184,
+       0.3757309913635254
+      ],
+      "pan": [
+       0.01035,
+       0.04975
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.031,
+      "saturation": 1.022,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "blur",
+      "start_frame": 663,
+      "end_frame": 669,
+      "cut_frame": 664,
+      "intensity": 0.892,
+      "blur_kind": "radial",
+      "peak_luma": null,
+      "beat_offset_ms": -92.7,
+      "beat_index": 32.847,
+      "direction": "zoom_in",
+      "motion": {
+       "dx": -0.0319,
+       "dy": -0.0296,
+       "zoom": 0.1092
+      },
+      "envelope": [
+       0.885,
+       1.0,
+       0.995,
+       0.664,
+       0.632,
+       0.633
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v35",
+     "source": "s1",
+     "at": 702,
+     "duration": 18,
+     "time": {
+      "src_start_s": 6.0,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.001,
+        0.0018,
+        0.0027,
+        0.0033,
+        0.0039,
+        0.0045,
+        0.0052
+       ]
+      },
+      "center": [
+       0.5,
+       0.33771929144859314
+      ],
+      "pan": [
+       0.01095,
+       0.00465
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.009,
+      "saturation": 1.013,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 702,
+      "end_frame": 703,
+      "cut_frame": 702,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -10.0,
+      "beat_index": 34.983,
+      "direction": "none",
+      "motion": {
+       "dx": 0.0207,
+       "dy": 0.0018,
+       "zoom": 0.0217
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v36",
+     "source": "s1",
+     "at": 720,
+     "duration": 18,
+     "time": {
+      "src_start_s": 2.9,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.0002,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0004,
+        0.0006
+       ]
+      },
+      "center": [
+       0.5520833134651184,
+       0.37280702590942383
+      ],
+      "pan": [
+       0.01265,
+       0.0069
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.003,
+      "saturation": 0.983,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 719,
+      "end_frame": 721,
+      "cut_frame": 720,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": 590.0,
+      "beat_index": 35.485,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0081,
+       "dy": -0.0221,
+       "zoom": 0.0059
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v37",
+     "source": "s0",
+     "at": 738,
+     "duration": 18,
+     "time": {
+      "src_start_s": 3.8,
+      "speed": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        1.3144,
+        1.2425,
+        1.1356,
+        1.0394,
+        0.9401,
+        0.8491,
+        0.7653,
+        0.7203
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.4484,
+        0.4103,
+        0.3781,
+        0.3514,
+        0.3301,
+        0.3148,
+        0.3054,
+        0.3025
+       ]
+      },
+      "center": [
+       0.7317708134651184,
+       0.3611111044883728
+      ],
+      "pan": [
+       0.0114,
+       0.0104
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.825,
+      "saturation": 1.057,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "flash",
+      "start_frame": 736,
+      "end_frame": 741,
+      "cut_frame": 738,
+      "intensity": 0.746,
+      "blur_kind": "none",
+      "peak_luma": 219.1,
+      "beat_offset_ms": -27.0,
+      "beat_index": 35.978,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0223,
+       "dy": -0.0135,
+       "zoom": -0.0517
+      },
+      "envelope": [
+       0.175,
+       0.942,
+       1.0,
+       0.343,
+       0.011
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v38",
+     "source": "s0",
+     "at": 756,
+     "duration": 9,
+     "time": {
+      "src_start_s": 4.7,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.5192,
+        0.5185,
+        0.5173,
+        0.5161,
+        0.5147,
+        0.5132,
+        0.5115,
+        0.5096
+       ]
+      },
+      "center": [
+       0.7161458134651184,
+       0.3318713307380676
+      ],
+      "pan": [
+       0.0179,
+       0.00155
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.934,
+      "saturation": 1.04,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 756,
+      "end_frame": 757,
+      "cut_frame": 756,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -31.0,
+      "beat_index": 36.949,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0033,
+       "dy": -0.0136,
+       "zoom": 0.0111
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v39",
+     "source": "s1",
+     "at": 765,
+     "duration": 9,
+     "time": {
+      "src_start_s": 2.2,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.0004,
+        0.0008,
+        0.0013,
+        0.0017,
+        0.0021,
+        0.0025,
+        0.003
+       ]
+      },
+      "center": [
+       0.5833333134651184,
+       0.4093567132949829
+      ],
+      "pan": [
+       0.0006,
+       0.00785
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.007,
+      "saturation": 1.081,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 765,
+      "end_frame": 766,
+      "cut_frame": 765,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": 269.0,
+      "beat_index": 37.446,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0081,
+       "dy": -0.0221,
+       "zoom": 0.0059
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v40",
+     "source": "s2",
+     "at": 774,
+     "duration": 36,
+     "time": {
+      "src_start_s": 0.7,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6553,
+        0.6421,
+        0.6265,
+        0.6219,
+        0.6234,
+        0.641,
+        0.6737,
+        0.7243
+       ]
+      },
+      "center": [
+       0.5,
+       0.14766082167625427
+      ],
+      "pan": [
+       0.04055,
+       0.12
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.162,
+      "saturation": 1.007,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 774,
+      "end_frame": 775,
+      "cut_frame": 774,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -34.0,
+      "beat_index": 37.944,
+      "direction": "none",
+      "motion": {
+       "dx": -0.018,
+       "dy": -0.0455,
+       "zoom": -0.0237
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v41",
+     "source": "s3",
+     "at": 810,
+     "duration": 18,
+     "time": {
+      "src_start_s": 1.6,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.0,
+        0.0004,
+        0.0007,
+        0.0011,
+        0.0015,
+        0.0018,
+        0.0021,
+        0.0025
+       ]
+      },
+      "center": [
+       0.6041666865348816,
+       0.5233917832374573
+      ],
+      "pan": [
+       0.00285,
+       0.00535
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.909,
+      "saturation": 0.41,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "flash",
+      "start_frame": 808,
+      "end_frame": 813,
+      "cut_frame": 810,
+      "intensity": 0.741,
+      "blur_kind": "none",
+      "peak_luma": 216.1,
+      "beat_offset_ms": -19.0,
+      "beat_index": 39.969,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0115,
+       "dy": -0.0528,
+       "zoom": 0.0456
+      },
+      "envelope": [
+       0.184,
+       0.951,
+       1.0,
+       0.332,
+       0.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v42",
+     "source": "s2",
+     "at": 828,
+     "duration": 16,
+     "time": {
+      "src_start_s": 0.5,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6219,
+        0.6274,
+        0.643,
+        0.6683,
+        0.703,
+        0.743,
+        0.7876,
+        0.8379
+       ]
+      },
+      "center": [
+       0.5,
+       0.14766082167625427
+      ],
+      "pan": [
+       0.01235,
+       0.00125
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 0.865,
+      "saturation": 0.986,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 828,
+      "end_frame": 829,
+      "cut_frame": 828,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -22.0,
+      "beat_index": 40.964,
+      "direction": "none",
+      "motion": {
+       "dx": -0.0065,
+       "dy": -0.0122,
+       "zoom": -0.0034
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v43",
+     "source": "s2",
+     "at": 844,
+     "duration": 38,
+     "time": {
+      "src_start_s": 4.0,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.6278,
+        0.583,
+        0.5853,
+        0.5872,
+        0.5884,
+        0.5903,
+        0.593,
+        0.5945
+       ]
+      },
+      "center": [
+       0.2786458432674408,
+       0.5453216433525085
+      ],
+      "pan": [
+       0.01035,
+       0.04975
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.119,
+      "saturation": 0.961,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "blur",
+      "start_frame": 843,
+      "end_frame": 849,
+      "cut_frame": 844,
+      "intensity": 0.892,
+      "blur_kind": "radial",
+      "peak_luma": null,
+      "beat_offset_ms": -92.7,
+      "beat_index": 41.847,
+      "direction": "zoom_in",
+      "motion": {
+       "dx": -0.0319,
+       "dy": -0.0296,
+       "zoom": 0.1092
+      },
+      "envelope": [
+       0.885,
+       1.0,
+       0.995,
+       0.664,
+       0.632,
+       0.633
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    },
+    {
+     "type": "video",
+     "id": "v44",
+     "source": "s2",
+     "at": 882,
+     "duration": 18,
+     "time": {
+      "src_start_s": 3.5,
+      "speed": {
+       "t": [
+        0.0,
+        1.0
+       ],
+       "v": [
+        1.0,
+        1.0
+       ]
+      },
+      "src_fps": null,
+      "src_frames": null
+     },
+     "transform": {
+      "zoom": {
+       "t": [
+        0.0,
+        0.1429,
+        0.2857,
+        0.4286,
+        0.5714,
+        0.7143,
+        0.8571,
+        1.0
+       ],
+       "v": [
+        0.612,
+        0.613,
+        0.6138,
+        0.6147,
+        0.6153,
+        0.6159,
+        0.6165,
+        0.6172
+       ]
+      },
+      "center": [
+       0.3932291567325592,
+       0.5438596606254578
+      ],
+      "pan": [
+       0.01095,
+       0.00465
+      ],
+      "flip": false,
+      "warps": null
+     },
+     "color": {
+      "gamma": 1.134,
+      "saturation": 0.992,
+      "subject_gamma": 1.0,
+      "background_gamma": 1.0,
+      "subject_sharpen": 0.0,
+      "matrix": null
+     },
+     "transition_in": {
+      "type": "cut",
+      "start_frame": 882,
+      "end_frame": 883,
+      "cut_frame": 882,
+      "intensity": 1.0,
+      "blur_kind": "none",
+      "peak_luma": null,
+      "beat_offset_ms": -10.0,
+      "beat_index": 43.983,
+      "direction": "none",
+      "motion": {
+       "dx": 0.0207,
+       "dy": 0.0018,
+       "zoom": 0.0217
+      },
+      "envelope": [
+       1.0
+      ]
+     },
+     "provenance": {
+      "by": "matcher",
+      "confidence": null,
+      "method": null,
+      "notes": []
+     },
+     "measured": null
+    }
+   ]
+  },
+  {
+   "id": "A1",
+   "kind": "audio",
+   "items": [
+    {
+     "type": "audio",
+     "id": "a0",
+     "source": "s4",
+     "at": 0,
+     "duration": 900,
+     "offset_s": 0.0,
+     "volume": 1.0,
+     "loop": true,
+     "fade_out_s": 0.4
+    }
+   ]
+  }
+ ],
+ "effects": [
+  {
+   "type": "zoom_punch",
+   "start_frame": 23,
+   "end_frame": 33,
+   "peak_frame": 24,
+   "magnitude": -0.1043,
+   "intensity": 0.194,
+   "anchor": "cut",
+   "anchor_ref": 0,
+   "anchor_offset": 6,
+   "confidence": 0.7,
+   "envelope": [
+    0.693,
+    1.0,
+    0.916,
+    0.838,
+    0.757,
+    0.676,
+    0.586,
+    0.497,
+    0.41,
+    0.322
+   ]
+  },
+  {
+   "type": "zoom_punch",
+   "start_frame": 111,
+   "end_frame": 121,
+   "peak_frame": 119,
+   "magnitude": 0.1602,
+   "intensity": 0.378,
+   "anchor": "cut",
+   "anchor_ref": 6,
+   "anchor_offset": -5,
+   "confidence": 0.7,
+   "envelope": [
+    0.238,
+    0.416,
+    0.524,
+    0.635,
+    0.74,
+    0.826,
+    0.896,
+    0.942,
+    1.0,
+    0.682
+   ]
+  },
+  {
+   "type": "zoom_punch",
+   "start_frame": 203,
+   "end_frame": 213,
+   "peak_frame": 204,
+   "magnitude": -0.1043,
+   "intensity": 0.194,
+   "anchor": "cut",
+   "anchor_ref": 0,
+   "anchor_offset": 6,
+   "confidence": 0.7,
+   "envelope": [
+    0.693,
+    1.0,
+    0.916,
+    0.838,
+    0.757,
+    0.676,
+    0.586,
+    0.497,
+    0.41,
+    0.322
+   ]
+  },
+  {
+   "type": "zoom_punch",
+   "start_frame": 291,
+   "end_frame": 301,
+   "peak_frame": 299,
+   "magnitude": 0.1602,
+   "intensity": 0.378,
+   "anchor": "cut",
+   "anchor_ref": 6,
+   "anchor_offset": -5,
+   "confidence": 0.7,
+   "envelope": [
+    0.238,
+    0.416,
+    0.524,
+    0.635,
+    0.74,
+    0.826,
+    0.896,
+    0.942,
+    1.0,
+    0.682
+   ]
+  },
+  {
+   "type": "zoom_punch",
+   "start_frame": 383,
+   "end_frame": 393,
+   "peak_frame": 384,
+   "magnitude": -0.1043,
+   "intensity": 0.194,
+   "anchor": "cut",
+   "anchor_ref": 0,
+   "anchor_offset": 6,
+   "confidence": 0.7,
+   "envelope": [
+    0.693,
+    1.0,
+    0.916,
+    0.838,
+    0.757,
+    0.676,
+    0.586,
+    0.497,
+    0.41,
+    0.322
+   ]
+  },
+  {
+   "type": "zoom_punch",
+   "start_frame": 471,
+   "end_frame": 481,
+   "peak_frame": 479,
+   "magnitude": 0.1602,
+   "intensity": 0.378,
+   "anchor": "cut",
+   "anchor_ref": 6,
+   "anchor_offset": -5,
+   "confidence": 0.7,
+   "envelope": [
+    0.238,
+    0.416,
+    0.524,
+    0.635,
+    0.74,
+    0.826,
+    0.896,
+    0.942,
+    1.0,
+    0.682
+   ]
+  },
+  {
+   "type": "zoom_punch",
+   "start_frame": 563,
+   "end_frame": 573,
+   "peak_frame": 564,
+   "magnitude": -0.1043,
+   "intensity": 0.194,
+   "anchor": "cut",
+   "anchor_ref": 0,
+   "anchor_offset": 6,
+   "confidence": 0.7,
+   "envelope": [
+    0.693,
+    1.0,
+    0.916,
+    0.838,
+    0.757,
+    0.676,
+    0.586,
+    0.497,
+    0.41,
+    0.322
+   ]
+  },
+  {
+   "type": "zoom_punch",
+   "start_frame": 651,
+   "end_frame": 661,
+   "peak_frame": 659,
+   "magnitude": 0.1602,
+   "intensity": 0.378,
+   "anchor": "cut",
+   "anchor_ref": 6,
+   "anchor_offset": -5,
+   "confidence": 0.7,
+   "envelope": [
+    0.238,
+    0.416,
+    0.524,
+    0.635,
+    0.74,
+    0.826,
+    0.896,
+    0.942,
+    1.0,
+    0.682
+   ]
+  },
+  {
+   "type": "zoom_punch",
+   "start_frame": 743,
+   "end_frame": 753,
+   "peak_frame": 744,
+   "magnitude": -0.1043,
+   "intensity": 0.194,
+   "anchor": "cut",
+   "anchor_ref": 0,
+   "anchor_offset": 6,
+   "confidence": 0.7,
+   "envelope": [
+    0.693,
+    1.0,
+    0.916,
+    0.838,
+    0.757,
+    0.676,
+    0.586,
+    0.497,
+    0.41,
+    0.322
+   ]
+  },
+  {
+   "type": "zoom_punch",
+   "start_frame": 831,
+   "end_frame": 841,
+   "peak_frame": 839,
+   "magnitude": 0.1602,
+   "intensity": 0.378,
+   "anchor": "cut",
+   "anchor_ref": 6,
+   "anchor_offset": -5,
+   "confidence": 0.7,
+   "envelope": [
+    0.238,
+    0.416,
+    0.524,
+    0.635,
+    0.74,
+    0.826,
+    0.896,
+    0.942,
+    1.0,
+    0.682
+   ]
+  }
+ ],
+ "fx_events": [],
+ "look": {
+  "gamma": 1.0,
+  "saturation": 1.0,
+  "contrast": 1.0,
+  "sharpen": 0.0,
+  "pivot": 110.0
+ },
+ "zoom_gain": 1.0,
+ "effects_scale": 1.0,
+ "render_hints": {
+  "denoise": 0.5,
+  "super_resolution": false
+ },
+ "meta": {
+  "created_by": "velocity.pipeline",
+  "scenario": "B",
+  "reference": "reference.mp4",
+  "dna_schema": "1.3"
+ }
+}

@@ -3,6 +3,7 @@
 // timeline final e reaplica os efeitos da IA é o backend (velocity/edit/timeline_ops.py).
 import { h, icon, toast, fmtDur, confirmSheet, setBusy, fill } from "../ui.js";
 import { t } from "../i18n.js";
+import { fitFrame } from "./common.js";
 import { api, uid, uploadTo, probeMedia } from "../api.js";
 import { state, setCredits, track } from "../state.js";
 
@@ -56,6 +57,7 @@ export async function render(ctx) {
   const roughVideo = h("video", { playsinline: true, muted: true, preload: "auto", crossorigin: "anonymous" });
   const textLayer = h("div", { style: { position: "absolute", inset: 0, pointerEvents: "none" } });
   const frame = h("div", { class: "phone-frame" }, finalVideo, roughVideo, textLayer);
+  fitFrame(frame, project.resolution);
   const note = h("span", { class: "badge note hidden", text: t("Preview without effects — export to see the final video.") });
   const timeLabel = h("span", { class: "ed-time mono" });
   const playBtn = h("button", { class: "btn btn-icon", "aria-label": "Play" }, icon("play"));

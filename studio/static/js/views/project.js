@@ -3,7 +3,7 @@ import { h, icon, toast, fmtDur, sheet, confirmSheet, setBusy } from "../ui.js";
 import { t } from "../i18n.js";
 import { api, pollJob, uid } from "../api.js";
 import { state, setCredits, costFor, track } from "../state.js";
-import { renameSheet } from "./common.js";
+import { renameSheet, fitFrame } from "./common.js";
 import { openBuySheet } from "./buy.js";
 
 const GEN_STAGES = [["uploading", "Uploading"], ["analyzing_reference", "Analyzing reference"], ["preparing_edit", "Preparing edit"],
@@ -78,8 +78,10 @@ export async function render(ctx) {
     const title = h("button", { class: "btn btn-ghost", style: { padding: 0, height: "auto", justifyContent: "flex-start" }, onclick: () => renameSheet(project, load) },
       h("h1", { text: project.name }), icon("edit", "icon-sm"));
     const lj = project.last_job;
+    const frame = h("div", { class: "phone-frame" }, video);
+    const fmt = fitFrame(frame, project.resolution);
     el.replaceChildren(h("div", { class: "result-layout" },
-      h("div", { class: "phone-frame" }, video),
+      frame,
       h("div", { class: "stack" },
         h("div", { class: "stack-sm" },
           h("span", { class: "badge badge-ok", style: { justifySelf: "start" } }, icon("check", "icon-sm"), t("Your edit is ready")),
@@ -87,9 +89,10 @@ export async function render(ctx) {
         h("div", { class: "kv" },
           h("div", { class: "stat" }, h("b", { class: "mono", text: fmtDur(project.duration_s) }), h("span", { text: t("Duration") })),
           h("div", { class: "stat" }, h("b", { class: "mono", text: (project.resolution || "—").replace("x", "×") }), h("span", { text: t("Resolution") })),
-          h("div", { class: "stat" }, h("b", { text: "9:16" }), h("span", { text: t("Format") }))),
+          h("div", { class: "stat" }, h("b", { text: fmt.label }), h("span", { text: t("Format") }))),
         h("div", { class: "actions-grid" },
-          project.can_edit ? h("a", { class: "btn btn-primary", href: `/edit/${project.id}` }, icon("edit"), t("Edit")) : null,
+          !project.sources_purged ? h("a", { class: "btn btn-primary", href: `/agent/${project.id}` }, icon("spark"), t("Ask the AI for changes")) : null,
+          project.can_edit ? h("a", { class: "btn", href: `/edit/${project.id}` }, icon("edit"), t("Edit")) : null,
           h("a", { class: "btn", href: `/api/projects/${project.id}/download`, download: "" }, icon("download"), t("Download")),
           h("button", { class: "btn", onclick: () => shareSheet(project) }, icon("share"), t("Share")),
           project.files.some((f) => f.kind === "reference" && f.uploaded) && !project.sources_purged

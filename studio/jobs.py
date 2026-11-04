@@ -97,7 +97,7 @@ class JobService:
             if credits > 0:  # o job não chegou a existir: devolve já o que foi cobrado
                 self.store.grant_credits(user_id, credits, "refund", job_id, f"refund:{job_id}")
             raise
-        if kind != "analyze":
+        if kind in ("generate", "render_edit", "agent_render"):
             out_path, _ = self.output_paths(job)
             self.store.update_job(job_id, {"output_path": out_path})
         return job
@@ -163,7 +163,8 @@ class JobService:
     def create_render_edit(self, user_id: str, project: dict, doc: dict, idem_key: str | None = None) -> dict:
         from pydantic import ValidationError
         from velocity.edit.timeline_ops import EditDoc, apply_edit
-        from velocity.schemas.timeline import Timeline
+        from velocity.engine import choose_engine
+        from velocity.plan import PlanVersionError, errors, load_plan, plan_to_timeline, timeline_to_plan, validate_plan
 
         if idem_key:
             existing = self.store.find_job_by_idempotency(user_id, idem_key)
@@ -177,9 +178,16 @@ class JobService:
         try:
             edit = EditDoc.model_validate(doc)
             files = {f["id"]: f"uploads/{f['path']}" for f in project.get("files") or [] if f.get("uploaded")}
-            edited = apply_edit(Timeline.model_validate(project["timeline"]), edit, files)
+            original = load_plan(project["timeline"])
+            edited = apply_edit(plan_to_timeline(original), edit, files)
+            plan = timeline_to_plan(edited, meta={**original.meta, "edited": True})
+        except PlanVersionError as e:
+            raise ApiError(409, "project_too_new", f"This project was saved by a newer version: {e}"[:300])
         except (ValidationError, ValueError) as e:
             raise ApiError(400, "invalid_edit", f"This edit can't be applied: {e}"[:300])
+        issues = errors(validate_plan(plan) + choose_engine(plan).validate(plan))
+        if issues:  # recusado ANTES de reservar créditos ou de ocupar um worker
+            raise ApiError(400, "invalid_edit", "This edit can't be rendered: " + "; ".join(i.message for i in issues[:2]))
         self._check_capacity()
         cost = int(self.store.get_config().get("credits_per_edit_export") or 0)
         profile = (project.get("settings") or {}).get("profile", "standard")
@@ -193,7 +201,8 @@ class JobService:
             raise ApiError(410, "sources_expired", "Some original clips for this project are no longer available.")
         payload = {
             "kind": "render_edit", "job_id": job["id"],
-            "timeline": json.loads(edited.model_dump_json()),
+            "plan": json.loads(plan.model_dump_json()),
+            "timeline": json.loads(edited.model_dump_json()),  # worker anterior ao Plano (deploys desfasados)
             "inputs": {"files": {k: self._item(by_key[k]) for k in keys}},
             "params": {"profile": profile}, "limits": self._limits(),
             "outputs": {"video": self._target("outputs", out_path), "thumbnail": self._target("thumbs", thumb_path)},
@@ -202,6 +211,38 @@ class JobService:
                                                   "settings": {**(project.get("settings") or {}), "edit_doc": doc}})
         self._track("edit_export_started", user_id, {"credits": cost})
         return self._submit(job, payload)
+
+    def create_agent_job(self, user_id: str, project: dict, kind: str, *, keys: list[str] | None = None, params: dict | None = None,
+                         plan: dict | None = None, reference_dna: dict | None = None, n_images: int = 0, credits: int = 0,
+                         profile: str | None = None, idem_key: str | None = None) -> dict:
+        """Trabalho de uma ferramenta do agente. `keys`: chaves de armazenamento (uploads/..., outputs/...)
+        de que o worker precisa, sempre verificadas contra o projeto. O resultado fica em job["result"]."""
+        if idem_key:
+            existing = self.store.find_job_by_idempotency(user_id, idem_key)
+            if existing:
+                return existing  # o ciclo recomeçou depois de um reinício: não repete o trabalho nem a cobrança
+        self._check_capacity()
+        job = self._new_job(user_id, project, kind, credits, profile=profile, idempotency_key=idem_key)
+        base = f"{user_id}/{project['id']}/agent/{job['id']}"
+        outputs: dict = {"images": []}
+        for k in range(n_images):
+            path = f"{base}_{k}.jpg"
+            outputs["images"].append({**self._target("outputs", path), "path": path})
+        if kind == "agent_render":
+            out_path, thumb_path = self.output_paths(job)
+            outputs.update(video=self._target("outputs", out_path), thumbnail=self._target("thumbs", thumb_path))
+        payload = {"kind": kind, "job_id": job["id"], "inputs": {"files": {k: self._key_item(k, project) for k in keys or []}},
+                   "params": params or {}, "plan": plan, "reference_dna": reference_dna, "limits": self._limits(), "outputs": outputs}
+        return self._submit(job, payload)
+
+    def _key_item(self, key: str, project: dict) -> dict:
+        """Item de entrada a partir de uma chave, só se o ficheiro pertencer a este projeto."""
+        bucket, _, path = key.partition("/")
+        prefix = f"{project['user_id']}/{project['id']}/"
+        if bucket not in ("uploads", "outputs") or not path.startswith(prefix):
+            raise ApiError(403, "forbidden", "This file doesn't belong to the project.")
+        local = self.storage.local_path(bucket, path) if getattr(self.storage, "is_local", False) else None
+        return {"key": key, "name": path.rsplit("/", 1)[-1], "url": self.storage.signed_url(bucket, path, 6 * 3600), "local_path": local}
 
     # --------------------------------------------------------------- progresso
     def on_progress(self, job_id: str, stage: str, frac: float) -> None:
@@ -287,6 +328,10 @@ class JobService:
             fields["queue_time_s"] = round(queue_ms / 1000, 2)
         if not job.get("started_at"):
             fields["started_at"] = fields["completed_at"]
+        if job["kind"].startswith("agent_"):  # o resultado é do agente, que decide o que fazer com ele
+            self.store.update_job(job["id"], {**fields, "result": {k: v for k, v in out.items() if k not in ("metrics", "ok")},
+                                              "video_duration_s": out.get("duration_s"), "resolution": out.get("resolution")})
+            return
         project = self.store.get_project(job["project_id"]) if job.get("project_id") else None
         if job["kind"] == "analyze":
             self.store.update_job(job["id"], fields)
@@ -302,12 +347,13 @@ class JobService:
             old = (project.get("output_path"), project.get("thumbnail_path"))
             settings = dict(project.get("settings") or {})
             if job["kind"] == "generate":
-                settings["ai_timeline"] = out.get("timeline")  # para "voltar à versão da IA" no editor
+                settings["ai_timeline"] = out.get("plan") or out.get("timeline")  # "voltar à versão da IA" no editor
                 settings.pop("edit_doc", None)
             self.store.update_project(project["id"], {
                 "status": "completed", "output_path": out_path, "thumbnail_path": thumb_path,
                 "duration_s": out.get("duration_s"), "resolution": out.get("resolution"),
-                "timeline": out.get("timeline"), "last_job_id": job["id"], "settings": settings,
+                # coluna `timeline`: guarda o Plano v1 (ou a Timeline antiga de um worker anterior)
+                "timeline": out.get("plan") or out.get("timeline"), "last_job_id": job["id"], "settings": settings,
             })
             try:  # o Supabase Free tem 1 GB: o vídeo anterior do mesmo projeto já não é preciso
                 if old[0] and old[0] != out_path:
@@ -343,6 +389,8 @@ class JobService:
         if job.get("credits_used"):
             refunded = self.store.refund_job(job_id)  # sem vídeo, sem cobrança
         project = self.store.get_project(job["project_id"]) if job.get("project_id") else None
+        if job["kind"].startswith("agent_"):
+            project = None  # o estado do projeto só muda quando o agente apresenta uma versão
         if project:
             if job["kind"] == "analyze":
                 self.store.update_project(project["id"], {"settings": {**(project.get("settings") or {}),
@@ -358,7 +406,7 @@ class JobService:
         if job.get("credits_used"):
             self.store.refund_job(job["id"])
         project = self.store.get_project(job["project_id"]) if job.get("project_id") else None
-        if project and job["kind"] != "analyze":
+        if project and job["kind"] != "analyze" and not job["kind"].startswith("agent_"):
             self.store.update_project(project["id"], {"status": "completed" if project.get("output_path") else "draft"})
 
     def cancel(self, user_id: str, job_id: str) -> dict:

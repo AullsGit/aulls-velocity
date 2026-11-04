@@ -3,6 +3,10 @@
 Por plano: decodifica a janela fonte necessária (cover-crop ao tamanho de saída), mapeia
 tempo de saída -> tempo fonte pela curva de velocidade (com mistura de frames em slow-mo),
 aplica zoom/pan por keyframes e, no fim, o efeito da transição centrado no corte.
+
+Planos com `clip.exact` (reconstrução do cenário A, ver matching/source_align.py) seguem outro
+caminho: frame da fonte e transformação afim MEDIDOS para cada frame de saída, frame inteiro da
+fonte decodificado à taxa nativa, e matriz de cor 3x4 medida.
 """
 from __future__ import annotations
 
@@ -14,8 +18,9 @@ from concurrent.futures import ThreadPoolExecutor
 import cv2
 import numpy as np
 
+from velocity.io.frames import iter_range
 from velocity.io.probe import probe
-from velocity.render import effects, fxstack, sr as srmod, textfx
+from velocity.render import audiomix, effects, fxstack, sr as srmod, textfx
 from velocity.schemas.edit_dna import Curve
 from velocity.schemas.timeline import ClipUse, Timeline, TimelineShot
 
@@ -57,6 +62,14 @@ def decode_window(path: str, t0: float, n_frames: int, w: int, h: int, cover_sca
     1440x2560 no ffmpeg só para o warpAffine o voltar a reduzir — ~9x mais píxeis descodificados
     e enviados pelo pipe. O campo de visão é o mesmo; quem amplia agora (uma única vez, bicúbico)
     é o warpAffine em `_render_shot`.
+
+    Tempo (medido com velocity/evaluate/engine_t1.py, fontes com o nº do frame desenhado):
+      * o seek fica 1/4 de frame da FONTE antes de t0 — com `-ss` arredondado a 4 casas, metade
+        dos planos começava 1 frame tarde (20/30 s -> "0.6667" já passa do frame 20);
+      * `fps=...:round=up`: cada frame de saída mostra o frame da fonte que está no ecrã nesse
+        instante (regra "hold"), igual nos dois sentidos (24->30 e 30->24) e igual à do
+        alinhamento e do gerador de verdade. O arredondamento por defeito do filtro dava regras
+        diferentes em cada sentido (até 1 frame de diferença).
     """
     info = probe(path)
     tw, th = _window_size(info, w, h, cover_scale)
@@ -68,8 +81,14 @@ def decode_window(path: str, t0: float, n_frames: int, w: int, h: int, cover_sca
     if denoise > 0.01:  # hqdn3d (espacial+temporal) à resolução NATIVA, antes de ampliar
         d = min(denoise, 1.0)
         dn = f"hqdn3d={1.6 * d:.2f}:{1.3 * d:.2f}:{3.0 * d:.2f}:{2.5 * d:.2f},"
-    cmd = ["ffmpeg", "-v", "error", "-ss", f"{max(t0, 0):.4f}", "-i", path, "-an",
-           "-vf", f"fps={fps},{dn}{vf},format=rgb24", "-frames:v", str(n_frames), "-f", "rawvideo", "-"]
+    # começa no frame que está no ecrã em t0 (seek 1/4 de frame antes dele) e põe esse frame no
+    # instante 0 (setpts), para o `round=up` contar a partir do início do plano
+    src_fps = float(info.fps_nominal or info.fps_avg or 30.0)
+    f0 = math.floor(max(t0, 0.0) * src_fps + 1e-6)
+    seek = max((f0 - 0.25) / src_fps, 0.0)
+    cmd = ["ffmpeg", "-v", "error", "-ss", f"{seek:.6f}", "-i", path, "-an",
+           "-vf", f"setpts=PTS-STARTPTS,fps={fps}:round=up,{dn}{vf},format=rgb24", "-frames:v", str(n_frames),
+           "-f", "rawvideo", "-"]
     r = subprocess.run(cmd, capture_output=True, timeout=300)
     if r.returncode != 0:
         raise RuntimeError(f"decode falhou {path}: {r.stderr[-300:].decode(errors='replace')}")
@@ -127,11 +146,15 @@ def _enhance(out: np.ndarray, alpha: np.ndarray, clip: ClipUse) -> np.ndarray:
 class _ShotPlan:
     """Tudo o que se calcula de um plano ANTES de decodificar (barato, sem I/O)."""
 
-    __slots__ = ("L", "tau", "rate", "cum", "need", "scale", "max_scale", "cover")
+    __slots__ = ("L", "tau", "rate", "cum", "need", "scale", "max_scale", "cover", "ex_lo", "ex_size")
 
     def __init__(self, shot: TimelineShot, tl: Timeline):
         clip = shot.clip
         self.L = L = shot.n_frames
+        self.ex_lo, self.ex_size = 0, None
+        if clip.exact is not None:
+            self._plan_exact(clip, tl)
+            return
         self.tau = tau = (np.arange(L) + 0.5) / L
         self.rate = rate = _interp(clip.speed, tau)
         self.cum = cum = np.concatenate([[0.0], np.cumsum(rate)[:-1]])  # posição fonte (em frames) do início de cada frame de saída
@@ -142,9 +165,34 @@ class _ShotPlan:
         self.max_scale = float(self.scale.max())
         self.cover = max(1.0, min(self.max_scale, 2.0))  # margem p/ não desfocar em zoom-in (limitada à resolução nativa)
 
+    def _plan_exact(self, clip: ClipUse, tl: Timeline):
+        ex = clip.exact
+        if len(ex.src_frames) != self.L or len(ex.warps) != self.L:
+            raise ValueError("exact: src_frames/warps têm de ter um valor por frame do plano")
+        self.ex_lo = min(ex.src_frames)
+        self.need = max(ex.src_frames) - self.ex_lo + 1
+        info = probe(clip.source_path)
+        # resolução de decode: a que dá >= 1 píxel de fonte por píxel de saída no recorte mais
+        # apertado do plano, nunca acima da nativa (ampliar no decode não acrescenta detalhe)
+        A = np.array(ex.warps, np.float64)
+        per_out_px = np.hypot(A[:, 0], A[:, 3] / info.aspect)  # largura da saída em larguras de fonte
+        wd = min(info.width, tl.width / max(float(per_out_px.min()), 1e-3))
+        wd = max(2, int(math.ceil(wd / 2)) * 2)
+        hd = max(2, int(round(wd / info.aspect / 2)) * 2)
+        self.ex_size = (wd, hd)
+        self.tau = self.rate = self.cum = None
+        self.scale = np.ones(self.L)
+        self.max_scale, self.cover = 1.0, 1.0
+
 
 def _decode_shot(shot: TimelineShot, tl: Timeline, plan: _ShotPlan) -> np.ndarray:
     clip: ClipUse = shot.clip
+    if clip.exact is not None:
+        # só os frames que o plano mostra (com speed 2x ou ramps, metade ou menos da janela)
+        wd, hd = plan.ex_size
+        want = set(clip.exact.src_frames)
+        return {j: f.copy() for j, f in enumerate(iter_range(clip.source_path, wd, clip.exact.src_fps, plan.ex_lo, plan.need,
+                                                                 rgb=True, height=hd), start=plan.ex_lo) if j in want}
     if tl.sr and srmod.available():
         info = probe(clip.source_path)
         a = tl.width / tl.height
@@ -163,6 +211,9 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None,
     """
     clip: ClipUse = shot.clip
     plan = plan or _ShotPlan(shot, tl)
+    if clip.exact is not None:
+        yield from _render_exact(shot, tl, plan, frames if frames is not None else _decode_shot(shot, tl, plan))
+        return
     L, tau, rate, cum, scale = plan.L, plan.tau, plan.rate, plan.cum, plan.scale
     fps = tl.fps
     if frames is None:
@@ -182,7 +233,7 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None,
         i0 = int(math.floor(pos))
         a = pos - i0
         img = frames[i0]
-        if rate[j] < 0.95 and a > 0.05 and i0 + 1 < n_src:  # slow-mo: mistura de frames
+        if clip.slowmo != "hold" and rate[j] < 0.95 and a > 0.05 and i0 + 1 < n_src:  # slow-mo: mistura de frames
             img = cv2.addWeighted(frames[i0], 1 - a, frames[i0 + 1], a, 0)
         # região de recorte no frame decodificado, com tamanho (W/scale, H/scale) e centro (cx,cy)+pan
         rw, rh = W / scale[j], H / scale[j]
@@ -226,6 +277,94 @@ def _render_shot(shot: TimelineShot, tl: Timeline, masks: dict | None = None,
         yield shot.start_frame + j, np.ascontiguousarray(out)
 
 
+def _render_exact(shot: TimelineShot, tl: Timeline, plan: _ShotPlan, frames: dict):
+    """Cada frame de saída = frame MEDIDO da fonte, pela afim MEDIDA, com a cor MEDIDA.
+    `frames`: frame da fonte -> imagem (só os usados)."""
+    ex = shot.clip.exact
+    if not frames:
+        raise RuntimeError(f"fonte sem frames na janela pedida: {shot.clip.source_path}")
+    H, W = plan.ex_size[1], plan.ex_size[0]
+    have = sorted(frames)
+
+    def norm(w, h):  # índice de píxel -> [0,1] (centro do píxel em (i+0.5)/w)
+        return np.array([[1.0 / w, 0, 0.5 / w], [0, 1.0 / h, 0.5 / h], [0, 0, 1]], np.float64)
+
+    n_out, n_dec_inv = norm(tl.width, tl.height), np.linalg.inv(norm(W, H))
+    cm = np.array(ex.color, np.float32) if ex.color else None
+    for j in range(plan.L):
+        jj = ex.src_frames[j]
+        img = frames.get(jj)
+        if img is None:  # ficheiro mais curto do que o medido: o frame disponível mais próximo
+            img = frames[min(have, key=lambda x: abs(x - jj))]
+        A = np.vstack([np.array(ex.warps[j], np.float64).reshape(2, 3), [0, 0, 1]])
+        M = (n_dec_inv @ A @ n_out)[:2].astype(np.float32)  # píxel de saída -> píxel decodificado
+        up = 1.0 / max(float(np.hypot(M[0, 0], M[1, 0])), 1e-6) > 1.001
+        out = cv2.warpAffine(img, M, (tl.width, tl.height), flags=(cv2.INTER_CUBIC if up else cv2.INTER_LINEAR) | cv2.WARP_INVERSE_MAP,
+                             borderMode=cv2.BORDER_REFLECT101)
+        if cm is not None:
+            out = cv2.transform(out, cm)
+        if shot.clip.flip:
+            out = out[:, ::-1]
+        yield shot.start_frame + j, np.ascontiguousarray(out)
+
+
+def _preroll(shot: TimelineShot, n: int, tl: Timeline) -> TimelineShot:
+    """O que o plano mostraria nos `n` frames ANTES de começar (para a dissolução de entrada)."""
+    c = shot.clip.model_copy(deep=True)
+    if c.exact is not None:
+        ex, first = c.exact, c.exact.src_frames[0]
+        c.exact = ex.model_copy(update={"src_frames": [max(0, first - n + k) for k in range(n)], "warps": [ex.warps[0]] * n,
+                                        "measured": []})
+    else:
+        s0, z0 = float(c.speed.v[0]), float(c.zoom.v[0])
+        c.src_start_s = max(0.0, c.src_start_s - n / tl.fps * s0)
+        c.speed = Curve(t=[0.0, 1.0], v=[s0, s0])
+        c.zoom = Curve(t=[0.0, 1.0], v=[z0, z0])
+        c.pan = (0.0, 0.0)
+    return TimelineShot(index=shot.index, start_frame=shot.start_frame - n, end_frame=shot.start_frame, clip=c)
+
+
+def _postroll(shot: TimelineShot, n: int, tl: Timeline) -> TimelineShot:
+    """O que o plano mostraria nos `n` frames DEPOIS de acabar (para a dissolução de saída)."""
+    c = shot.clip.model_copy(deep=True)
+    if c.exact is not None:
+        ex, last = c.exact, c.exact.src_frames[-1]
+        c.exact = ex.model_copy(update={"src_frames": [last + 1 + k for k in range(n)], "warps": [ex.warps[-1]] * n,
+                                        "measured": []})
+    else:
+        s1, z1 = float(c.speed.v[-1]), float(c.zoom.v[-1])
+        used = source_frames_needed(shot.n_frames, c.speed)
+        c.src_start_s = c.src_start_s + used / tl.fps
+        c.speed = Curve(t=[0.0, 1.0], v=[s1, s1])
+        c.zoom = Curve(t=[0.0, 1.0], v=[z1, z1])
+        c.center = (c.center[0] + c.pan[0], c.center[1] + c.pan[1])
+        c.pan = (0.0, 0.0)
+    return TimelineShot(index=shot.index, start_frame=shot.end_frame, end_frame=shot.end_frame + n, clip=c)
+
+
+def _dissolve_partners(tl: Timeline, si: int, masks) -> dict[int, tuple[np.ndarray, float, bool]]:
+    """Para o plano `si`: frame global -> (imagem do outro lado, peso do plano que ENTRA, este plano é o que entra).
+
+    A dissolução é uma transição do plano seguinte: o que entra começa antes do corte e o que sai
+    continua depois dele. Os dois lados vêm da própria fonte, nunca de frames repetidos."""
+    out: dict[int, tuple[np.ndarray, float, bool]] = {}
+
+    def weight(f: int, t) -> float:
+        return (f - t.start_frame + 0.5) / max(t.end_frame - t.start_frame, 1)
+
+    shot = tl.shots[si]
+    t = shot.transition_in
+    if t is not None and t.type == "dissolve" and si > 0 and t.end_frame > t.cut_frame:
+        for f, img in _render_shot(_postroll(tl.shots[si - 1], t.end_frame - t.cut_frame, tl), tl, masks):
+            out[f] = (img, weight(f, t), True)
+    nxt = tl.shots[si + 1] if si + 1 < len(tl.shots) else None
+    t = nxt.transition_in if nxt is not None else None
+    if t is not None and t.type == "dissolve" and t.cut_frame > t.start_frame:
+        for f, img in _render_shot(_preroll(nxt, t.cut_frame - t.start_frame, tl), tl, masks):
+            out[f] = (img, weight(f, t), False)
+    return out
+
+
 class _Writer:
     def __init__(self, path: str, w: int, h: int, fps: float, music: str | None, music_offset: float, duration: float, crf: int,
                  preset: str = "medium", volume: float = 1.0):
@@ -259,6 +398,8 @@ DECODE_MEM_MB = int(os.environ.get("VELOCITY_DECODE_MEM_MB", "512"))
 
 
 def _est_bytes(shot: TimelineShot, tl: Timeline, plan: _ShotPlan) -> int:
+    if plan.ex_size is not None:
+        return len(set(shot.clip.exact.src_frames)) * plan.ex_size[0] * plan.ex_size[1] * 3
     tw, th = _window_size(probe(shot.clip.source_path), tl.width, tl.height, plan.cover)
     return plan.need * tw * th * 3
 
@@ -294,9 +435,12 @@ def _prefetched_frames(tl: Timeline, plans: list[_ShotPlan]):
 
 def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dict | None = None, preset: str = "medium") -> str:
     duration = tl.n_frames / tl.fps
-    w = _Writer(out_path, tl.width, tl.height, tl.fps, tl.music_path, tl.music_offset_s, duration, crf, preset,
+    mix = audiomix.needs_mix(tl)  # som dos clips na mistura: vídeo primeiro, áudio numa passagem à parte (sem recodificar)
+    video_path = f"{out_path}.silent.mp4" if mix else out_path
+    w = _Writer(video_path, tl.width, tl.height, tl.fps, None if mix else tl.music_path, tl.music_offset_s, duration, crf, preset,
                 volume=tl.music_volume)
-    all_trans = [s.transition_in for s in tl.shots if s.transition_in is not None]
+    all_trans = [s.transition_in for s in tl.shots if s.transition_in is not None and s.transition_in.type != "dissolve"]
+    grade = np.array(tl.post_matrix, np.float32) if tl.post_matrix else None
     post_lut = None
     if abs(tl.post_gamma - 1.0) > 0.01 or abs(tl.post_contrast - 1.0) > 0.01:
         x = 255.0 * (np.arange(256) / 255.0) ** tl.post_gamma
@@ -306,7 +450,11 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
     decoded = _prefetched_frames(tl, plans)
     try:
         for si, (shot, frames) in enumerate(zip(tl.shots, decoded)):
+            partners = _dissolve_partners(tl, si, masks)
             for f, img in _render_shot(shot, tl, masks, plans[si], frames):
+                if f in partners:
+                    other, a, incoming = partners[f]
+                    img = cv2.addWeighted(img, a if incoming else 1.0 - a, other, 1.0 - a if incoming else a, 0)
                 if tl.effects:
                     img = fxstack.post_fx(img, f, tl.effects, tl.fx_scale)
                 # efeitos cuja janela contém f (transições e eventos de fx)
@@ -318,8 +466,11 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
                         mid = (ev.start_frame + ev.end_frame) // 2
                         amt = effects.envelope(f, ev.start_frame, mid, ev.end_frame)
                         img = effects.apply(img, ev.type, amt, ev.intensity, "radial", f)
+                if grade is not None:
+                    img = cv2.transform(img, grade)
                 for tx_ in tl.texts:
-                    img = textfx.draw(img, tx_, f)
+                    if tx_.style != "watermark":
+                        img = textfx.draw(img, tx_, f)
                 if post_lut is not None:
                     img = cv2.LUT(img, post_lut)
                 if tl.post_sharp > 0.02:
@@ -327,6 +478,9 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
                 if abs(tl.post_sat - 1.0) > 0.02:
                     g = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
                     img = cv2.addWeighted(cv2.merge([g, g, g]), 1.0 - tl.post_sat, img, tl.post_sat, 0)
+                for tx_ in tl.texts:  # a marca de água fica por cima de tudo, sem o look da edição
+                    if tx_.style == "watermark":
+                        img = textfx.draw(img, tx_, f)
                 w.write(img)
                 written += 1
             if progress:
@@ -336,4 +490,8 @@ def render(tl: Timeline, out_path: str, crf: int = 18, progress=None, masks: dic
         w.close()
     if written != tl.n_frames:
         raise RuntimeError(f"timeline incoerente: escreveu {written} frames, esperava {tl.n_frames}")
+    if mix:
+        audiomix.mix_audio(video_path, tl, out_path)
+        if os.path.exists(video_path):
+            os.remove(video_path)
     return out_path

@@ -23,7 +23,7 @@ def _parse(ts: str | None) -> datetime | None:
 
 
 class MemoryStore:
-    _FIELDS = ("profiles", "projects", "jobs", "ledger", "payments", "config", "packs", "promos", "events")
+    _FIELDS = ("profiles", "projects", "jobs", "ledger", "payments", "config", "packs", "promos", "events", "threads")
 
     def __init__(self, persist_path: str | None = None):
         self._lock = threading.RLock()
@@ -37,6 +37,7 @@ class MemoryStore:
         self.promos: dict[str, dict] = {}
         self.redemptions: set[tuple[str, str]] = set()
         self.events: list[dict] = []
+        self.threads: dict[str, dict] = {}
         self._persist = persist_path
         if persist_path:
             self._load()
@@ -92,7 +93,7 @@ class MemoryStore:
             return copy.deepcopy(p) if p else None
 
     def update_profile(self, user_id: str, fields: dict) -> dict:
-        allowed = {"display_name", "onboarded", "plan"}
+        allowed = {"display_name", "onboarded", "plan", "agent_memory"}
         with self._lock:
             p = self.profiles[user_id]
             p.update({k: v for k, v in fields.items() if k in allowed})
@@ -133,6 +134,39 @@ class MemoryStore:
     def delete_project(self, project_id: str) -> None:
         with self._lock:
             self.projects.pop(project_id, None)
+            self.threads.pop(project_id, None)
+
+    # ------------------------------------------------------- conversas do agente
+    def create_thread(self, user_id: str, project_id: str) -> dict:
+        with self._lock:
+            t = self.threads.get(project_id)
+            if t is None:
+                t = self.threads[project_id] = {"project_id": project_id, "user_id": user_id, "status": "idle", "messages": [], "events": [],
+                                                "state": {}, "usage": {}, "created_at": now_iso(), "updated_at": now_iso()}
+            return copy.deepcopy(t)
+
+    def get_thread(self, project_id: str) -> dict | None:
+        with self._lock:
+            t = self.threads.get(project_id)
+            return copy.deepcopy(t) if t else None
+
+    def update_thread(self, project_id: str, fields: dict) -> dict:
+        with self._lock:
+            t = self.threads[project_id]
+            t.update(copy.deepcopy(fields))
+            t["updated_at"] = now_iso()
+            return copy.deepcopy(t)
+
+    def list_threads(self, user_id: str, limit: int = 100) -> list[dict]:
+        """Só o que a lista de conversas mostra (as mensagens não saem daqui)."""
+        with self._lock:
+            rows = [t for t in self.threads.values() if t["user_id"] == user_id]
+            rows.sort(key=lambda t: t["updated_at"], reverse=True)
+            return [{k: copy.deepcopy(t[k]) for k in ("project_id", "user_id", "status", "created_at", "updated_at")} for t in rows[:limit]]
+
+    def list_running_threads(self) -> list[dict]:
+        with self._lock:
+            return [{k: t[k] for k in ("project_id", "user_id", "status")} for t in self.threads.values() if t["status"] == "running"]
 
     def find_project_by_share(self, token: str) -> dict | None:
         with self._lock:

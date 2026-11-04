@@ -111,6 +111,7 @@ def project_view(p: dict, full: bool = False) -> dict:
         "files": files, "reference_summary": p.get("reference_summary"),
         "has_output": bool(p.get("output_path")), "sources_purged": p.get("sources_purged", False),
         "share_url": f"/s/{p['share_token']}" if p.get("share_token") else None,
+        "agent": bool((p.get("settings") or {}).get("agent")),
     }
     ref = next((f for f in p.get("files") or [] if f["kind"] == "reference"), None)
     out["reference_name"] = ref["name"] if ref else None
@@ -289,6 +290,9 @@ def delete_project(project_id: str, user: User = Depends(require_user)):
     p = _own_project(project_id, user)
     for j in get_store().list_jobs(project_id=p["id"], statuses=JOB_ACTIVE, limit=5):
         jobs().cancel(user.id, j["id"])
+    from studio.agent_api import service as agent_service
+    agent_service().cancel(p["id"])
+    agent_service().delete_remote_files(get_store().get_thread(p["id"]))
     st = get_storage()
     prefix = f"{user.id}/{p['id']}"
     for bucket in ("uploads", "outputs", "thumbs"):
@@ -433,11 +437,11 @@ async def generate(project_id: str, request: Request, user: User = Depends(requi
 @router.get("/projects/{project_id}/editor")
 def editor_state(project_id: str, user: User = Depends(require_user)):
     from velocity.edit.timeline_ops import doc_from_timeline
-    from velocity.schemas.timeline import Timeline
+    from velocity.plan import load_plan, plan_to_timeline
     p = _own_project(project_id, user)
     if not p.get("timeline"):
         raise ApiError(400, "nothing_to_edit", "Generate a video before editing it.")
-    tl = Timeline.model_validate(p["timeline"])
+    tl = plan_to_timeline(load_plan(p["timeline"]))
     key_to_file = {f"uploads/{f['path']}": f["id"] for f in p.get("files") or []}
     doc = doc_from_timeline(tl)
     shots = [{"file": key_to_file.get(s.clip.source_path), "src_start_s": round(s.clip.src_start_s, 3),
@@ -445,7 +449,7 @@ def editor_state(project_id: str, user: User = Depends(require_user)):
     ai = (p.get("settings") or {}).get("ai_timeline")
     ai_doc = None
     if ai:
-        ai_tl = Timeline.model_validate(ai)
+        ai_tl = plan_to_timeline(load_plan(ai))
         ai_doc = {"doc": doc_from_timeline(ai_tl).model_dump(),
                   "shots": [{"file": key_to_file.get(s.clip.source_path), "src_start_s": round(s.clip.src_start_s, 3),
                              "transition": s.transition_in.type if s.transition_in else None} for s in ai_tl.shots]}
@@ -622,7 +626,7 @@ async def emola_declare(request: Request, user: User = Depends(require_user)):
 
 # ============================================================== analytics
 _EVENT_NAMES = {"page_view", "landing_cta", "app_open", "install_prompt", "install_accepted", "share_clicked",
-                "onboarding_done", "editor_opened"}
+                "onboarding_done", "editor_opened", "agent_turn_done"}
 
 
 @router.post("/events")

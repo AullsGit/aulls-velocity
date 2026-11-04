@@ -23,6 +23,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 from studio import config  # noqa: E402
+from studio.agent_api import router as agent_router, service as agent_service  # noqa: E402
 from studio.api import jobs, router  # noqa: E402
 from studio.errors import ApiError  # noqa: E402
 from studio.store import get_store  # noqa: E402
@@ -101,6 +102,7 @@ async def _guard(request: Request, call_next):
 
 
 app.include_router(router)
+app.include_router(agent_router)
 
 
 # ----------------------------------------------------------------- arranque
@@ -110,7 +112,7 @@ def _startup():
             v = get_store().schema_version()
         except Exception:
             v = 0
-        if v < 3:
+        if v < 4:
             app.state.maintenance = "schema"
             log.critical("Base de dados desatualizada (schema_version=%s). Corre supabase-schema.sql no "
                          "Supabase (SQL Editor) — até lá a API responde 'maintenance'.", v)
@@ -131,6 +133,16 @@ def _startup():
     except Exception as e:  # ex.: RUNPOD_API_KEY em falta — falha clara, sem derrubar o site
         app.state.maintenance = "compute_config"
         log.critical("Fornecedor de computação mal configurado: %s", e)
+        return
+    if config.AGENT_ENABLED:
+        try:
+            n = agent_service().recover()
+            if n:
+                log.warning("%d turno(s) do agente retomado(s) depois do reinício", n)
+        except Exception:
+            log.exception("retoma dos turnos do agente falhou")
+    else:
+        log.warning("Agente desligado: falta ANTHROPIC_API_KEY.")
 
 
 @app.get("/health")
@@ -203,7 +215,7 @@ app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
 # SPA: tem de ficar no FIM (o Starlette avalia as rotas por ordem; antes disto apanharia
 # /static, /s/..., /manifest...).
-_APP_ROUTES = ("home", "create", "projects", "edit", "profile", "credits", "admin", "login", "signup", "welcome",
+_APP_ROUTES = ("home", "agent", "create", "projects", "edit", "profile", "credits", "admin", "login", "signup", "welcome",
                "auth/callback")
 
 

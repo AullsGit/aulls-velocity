@@ -40,9 +40,13 @@ def media(tmp_path_factory):
     _ff([*inputs, "-f", "lavfi", "-t", "8", "-i", "aevalsrc='0.6*sin(2*PI*220*t)*exp(-12*mod(t,0.5))':s=44100",
          "-filter_complex", graph, "-map", "[v]", "-map", f"{len(srcs)}:a", "-c:v", "libx264", "-preset", "veryfast",
          "-c:a", "aac", "-shortest", ref])
+    # clips do utilizador: material DIFERENTE do da referência (cenário B: edição por estilo, estendida
+    # a 25-30 s). Com os mesmos geradores da referência, o motor reconheceria o material e
+    # reconstruiria a edição (cenário A) — isso é testado em tests/test_reconstruct.py.
     a, b = str(d / "a.mp4"), str(d / "b.mp4")
-    _ff(["-f", "lavfi", "-t", "6", "-i", "testsrc2=size=480x854:rate=30", "-c:v", "libx264", "-preset", "veryfast", a])
-    _ff(["-f", "lavfi", "-t", "6", "-i", "mandelbrot=size=480x854:rate=30", "-c:v", "libx264", "-preset", "veryfast", b])
+    _ff(["-f", "lavfi", "-t", "6", "-i", "life=size=480x854:rate=30:mold=10:ratio=0.1:death_color=#202020:life_color=#ff8800",
+         "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", a])
+    _ff(["-f", "lavfi", "-t", "6", "-i", "sierpinski=size=480x854:rate=30", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", b])
     return {"ref": ref, "a": a, "b": b}
 
 

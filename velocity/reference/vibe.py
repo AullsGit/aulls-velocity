@@ -12,7 +12,7 @@ from velocity.reference.signals import Signals
 from velocity.schemas.edit_dna import EffectTrack, FxEvent, Impact, Transition, VibeProfile
 
 ENERGY_HZ = 4.0
-_TRANS_W = {"flash": 1.0, "glitch": 0.9, "blur": 0.8, "dip_black": 0.4, "cut": 0.45}
+_TRANS_W = {"flash": 1.0, "glitch": 0.9, "blur": 0.8, "dip_black": 0.4, "cut": 0.45, "dissolve": 0.15}
 _TRACK_W = {"zoom_punch": 1.0, "shake": 0.7, "rgb_split": 0.6, "exposure_pulse": 0.3, "contrast_pulse": 0.3, "sat_pulse": 0.25}
 
 
@@ -144,7 +144,7 @@ def build_vibe(sig: Signals, fps: float, duration_s: float, transitions: list[Tr
     eff_rate = eff_events / ndur
     eff_mean = float(np.mean(eff_int)) if eff_int else 0.0
     # efeitos PESADOS pelo tipo: blur é suave; flash/glitch/corte seco/shake são duros
-    hw = {"blur": 0.45, "dip_black": 0.4, "flash": 1.0, "glitch": 1.2, "cut": 0.7}
+    hw = {"blur": 0.45, "dip_black": 0.4, "flash": 1.0, "glitch": 1.2, "cut": 0.7, "dissolve": 0.2}
     eff_weighted = (sum(hw.get(t.type, 0.7) for t in transitions if t.type != "cut") + 0.7 * sum(1 for t in transitions if t.type == "cut")
                     + sum(0.8 for _ in fx) + sum(1.0 for t in tracks if t.type in ("zoom_punch", "shake", "rgb_split"))) / ndur
     harsh = (sum(1 for t in transitions if t.type in ("flash", "glitch", "cut")) / len(transitions)) if transitions else 0.0

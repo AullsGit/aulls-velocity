@@ -81,6 +81,7 @@ export async function render() {
       h("div", { class: "card stack" }, h("h2", { text: "Pricing" }),
         cfg("credits_per_generation", "Credits per generation (by quality)", 'e.g. {"fast":1,"standard":1,"hd":2}'),
         cfg("credits_per_edit_export", "Credits per editor export", "0 = free"),
+        cfg("credits_per_agent_revision", "Credits per corrected version from the AI agent", "the first final version costs one generation"),
         cfg("credit_usd_value", "Value of 1 credit (USD, shown to users)"),
         cfg("compute_cost_per_second_usd", "Compute cost per second (USD)", "From your RunPod GPU price — used to estimate cost per video"),
         h("div", { class: "divider" }),

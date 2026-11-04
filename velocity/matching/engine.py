@@ -24,7 +24,8 @@ class MatchWeights:
     unstable: float = 0.6  # penalização por frames instáveis (transições/cortes do PRÓPRIO clip) na janela
     continuity: float = 0.15  # posição do sujeito contínua em cortes secos (match cut)
     subject: float = 0.20  # sujeito presente e bem localizado
-    reuse: float = 0.10  # penalização por reutilizar material
+    reuse: float = 0.10  # penalização por reutilizar material (qualquer sobreposição, além da proporcional)
+    overlap: float = 2.0  # penalização proporcional à fração do trecho já usada: só se repete quando não há outro material
     speed_gain: float = 0.6  # quanto da curva de velocidade da referência é aplicado
     target_subject_height: float = 0.55  # tamanho-alvo do sujeito após reenquadramento
     max_punch_in: float = 2.4
@@ -98,7 +99,7 @@ def _role_energy(dna: EditDNA) -> tuple[np.ndarray, list[bool], list[bool]]:
     return (np.argsort(np.argsort(e)) + 0.5) / n, imp, rest
 
 
-def _cands(dna, clips, w, table, slots, ref_rank, imp, rest, K=30):
+def _cands(dna, clips, w, table, slots, ref_rank, imp, rest, K=600):
     """Para cada plano: os K melhores trechos (custo base sem reutilização), com direção/posição do sujeito."""
     out = []
     for k, (s, L, sc, need) in enumerate(slots):
@@ -153,14 +154,16 @@ def match(dna: EditDNA, clips: list[ClipProfile], w: MatchWeights | None = None)
     cands = _cands(dna, clips, w, table, slots, ref_rank, imp, rest)
     used: list[list[tuple[int, int]]] = [[] for _ in clips]
 
-    def overlap(ci, a, b, ignore=None):
-        return any(a < ub + 6 and ua - 6 < b for ua, ub in used[ci] if (ua, ub) != ignore)
+    def overlap(ci, a, b):
+        """Penalização pela fração de [a,b) que já foi usada (margem de 6 frames conta como repetição)."""
+        got = sum(max(0, min(b, ub + 6) - max(a, ua - 6)) for ua, ub in used[ci])
+        return w.reuse + w.overlap * min(1.0, got / max(b - a, 1)) if got else 0.0
 
     chosen: dict[int, dict] = {}
     for k in sorted(range(len(shots)), key=lambda k: -slots[k][3]):
         best = None
         for c in cands[k]:
-            pen = w.reuse if overlap(c["ci"], c["i"], c["i"] + c["n"]) else 0.0
+            pen = overlap(c["ci"], c["i"], c["i"] + c["n"])
             if best is None or c["cost"] + pen < best[0]:
                 best = (c["cost"] + pen, c)
         if best is None:  # todos os trechos têm cortes próprios: relaxa
@@ -183,7 +186,7 @@ def match(dna: EditDNA, clips: list[ClipProfile], w: MatchWeights | None = None)
                     cont += abs(chosen[k - 1]["cx1"] - c["cx0"])
                 if tr_next is not None and tr_next.type == "cut":
                     cont += abs(c["cx1"] - chosen[k + 1]["cx0"])
-                pen = w.reuse if overlap(c["ci"], c["i"], c["i"] + c["n"]) else 0.0
+                pen = overlap(c["ci"], c["i"], c["i"] + c["n"])
                 tot = c["cost"] + w.continuity * cont + pen
                 if best is None or tot < best[0]:
                     best = (tot, c)

@@ -1,0 +1,50 @@
+# Testes automáticos em cada push e pull request, na MESMA versão de Python das imagens Docker
+# (3.11; o desenvolvimento local usa 3.14 — é precisamente essa diferença que isto apanha).
+name: testes
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: ffmpeg e fontes (como no Dockerfile)
+        timeout-minutes: 8
+        env:
+          DEBIAN_FRONTEND: noninteractive  # sem isto o apt pode ficar à espera de uma pergunta (1.ª execução parou 20 min)
+        run: |
+          sudo -E apt-get update -q
+          sudo -E apt-get install -y -q --no-install-recommends ffmpeg fonts-dejavu-core
+          ffmpeg -hide_banner -version | head -1
+      - name: dependências (torch CPU, como no Dockerfile)
+        timeout-minutes: 12
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+          pip install -r requirements-cloud.txt pytest pyflakes
+      - name: lint dos módulos da nova arquitetura
+        run: python -m pyflakes velocity/plan velocity/engine velocity/agent studio/agent studio/agent_api.py velocity/reference/soft_cuts.py velocity/matching/source_align.py velocity/matching/reconstruct.py velocity/evaluate/fidelity_bench.py velocity/evaluate/synth.py
+      - name: plano publicado = plano do código
+        run: python -m velocity.plan --schema /tmp/plan.schema.json && diff -q /tmp/plan.schema.json docs/plan.schema.json
+      - name: pytest (inclui ponta-a-ponta com o motor real)
+        timeout-minutes: 15
+        run: python -m pytest -q
+
+  sql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: migração SQL num Postgres real (PGlite)
+        working-directory: tests/sql
+        run: npm install && npm test

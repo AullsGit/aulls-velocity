@@ -1,0 +1,1036 @@
+{
+ "$defs": {
+  "AudioItem": {
+   "properties": {
+    "type": {
+     "const": "audio",
+     "default": "audio",
+     "title": "Type",
+     "type": "string"
+    },
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "source": {
+     "title": "Source",
+     "type": "string"
+    },
+    "at": {
+     "default": 0,
+     "title": "At",
+     "type": "integer"
+    },
+    "duration": {
+     "title": "Duration",
+     "type": "integer"
+    },
+    "offset_s": {
+     "default": 0.0,
+     "title": "Offset S",
+     "type": "number"
+    },
+    "volume": {
+     "default": 1.0,
+     "title": "Volume",
+     "type": "number"
+    },
+    "loop": {
+     "default": true,
+     "title": "Loop",
+     "type": "boolean"
+    },
+    "fade_out_s": {
+     "default": 0.4,
+     "title": "Fade Out S",
+     "type": "number"
+    }
+   },
+   "required": [
+    "id",
+    "source",
+    "duration"
+   ],
+   "title": "AudioItem",
+   "type": "object"
+  },
+  "ColorOps": {
+   "description": "Cor do item. `matrix` (3x4, valores 0..255) é uma transformação MEDIDA fonte -> referência;\nos restantes são ajustes de tom (o sujeito/fundo dependem de uma máscara de pessoa).",
+   "properties": {
+    "gamma": {
+     "default": 1.0,
+     "title": "Gamma",
+     "type": "number"
+    },
+    "saturation": {
+     "default": 1.0,
+     "title": "Saturation",
+     "type": "number"
+    },
+    "subject_gamma": {
+     "default": 1.0,
+     "title": "Subject Gamma",
+     "type": "number"
+    },
+    "background_gamma": {
+     "default": 1.0,
+     "title": "Background Gamma",
+     "type": "number"
+    },
+    "subject_sharpen": {
+     "default": 0.0,
+     "title": "Subject Sharpen",
+     "type": "number"
+    },
+    "matrix": {
+     "anyOf": [
+      {
+       "items": {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Matrix"
+    }
+   },
+   "title": "ColorOps",
+   "type": "object"
+  },
+  "Curve": {
+   "description": "Curva normalizada em keyframes: t em [0,1] (fração do plano), v = valor.",
+   "properties": {
+    "t": {
+     "items": {
+      "type": "number"
+     },
+     "title": "T",
+     "type": "array"
+    },
+    "v": {
+     "items": {
+      "type": "number"
+     },
+     "title": "V",
+     "type": "array"
+    }
+   },
+   "required": [
+    "t",
+    "v"
+   ],
+   "title": "Curve",
+   "type": "object"
+  },
+  "EffectTrack": {
+   "description": "Efeito MEDIDO na referência (nunca inventado). `magnitude` é a grandeza física; `intensity`\né essa grandeza normalizada 0..1 para comparar entre efeitos. A âncora diz a que evento o\nefeito está preso, para o planeador o transferir para os cortes/batidas do resultado.",
+   "properties": {
+    "type": {
+     "enum": [
+      "zoom_punch",
+      "shake",
+      "rgb_split",
+      "exposure_pulse",
+      "contrast_pulse",
+      "sat_pulse"
+     ],
+     "title": "Type",
+     "type": "string"
+    },
+    "start_frame": {
+     "title": "Start Frame",
+     "type": "integer"
+    },
+    "end_frame": {
+     "title": "End Frame",
+     "type": "integer"
+    },
+    "peak_frame": {
+     "title": "Peak Frame",
+     "type": "integer"
+    },
+    "magnitude": {
+     "title": "Magnitude",
+     "type": "number"
+    },
+    "intensity": {
+     "default": 0.0,
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Intensity",
+     "type": "number"
+    },
+    "anchor": {
+     "default": "free",
+     "enum": [
+      "cut",
+      "beat",
+      "free"
+     ],
+     "title": "Anchor",
+     "type": "string"
+    },
+    "anchor_ref": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Anchor Ref"
+    },
+    "anchor_offset": {
+     "default": 0,
+     "title": "Anchor Offset",
+     "type": "integer"
+    },
+    "confidence": {
+     "default": 0.5,
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Confidence",
+     "type": "number"
+    },
+    "envelope": {
+     "default": [],
+     "items": {
+      "type": "number"
+     },
+     "title": "Envelope",
+     "type": "array"
+    }
+   },
+   "required": [
+    "type",
+    "start_frame",
+    "end_frame",
+    "peak_frame",
+    "magnitude"
+   ],
+   "title": "EffectTrack",
+   "type": "object"
+  },
+  "FxEvent": {
+   "description": "Efeito visual dentro de um plano SEM troca de conteúdo (punch, flash de glow, glitch).",
+   "properties": {
+    "type": {
+     "enum": [
+      "cut",
+      "flash",
+      "dip_black",
+      "blur",
+      "glitch",
+      "dissolve"
+     ],
+     "title": "Type",
+     "type": "string"
+    },
+    "start_frame": {
+     "title": "Start Frame",
+     "type": "integer"
+    },
+    "end_frame": {
+     "title": "End Frame",
+     "type": "integer"
+    },
+    "intensity": {
+     "title": "Intensity",
+     "type": "number"
+    }
+   },
+   "required": [
+    "type",
+    "start_frame",
+    "end_frame",
+    "intensity"
+   ],
+   "title": "FxEvent",
+   "type": "object"
+  },
+  "Look": {
+   "description": "Correção global aplicada depois da composição (ciclo de fidelidade ou editor).",
+   "properties": {
+    "gamma": {
+     "default": 1.0,
+     "title": "Gamma",
+     "type": "number"
+    },
+    "saturation": {
+     "default": 1.0,
+     "title": "Saturation",
+     "type": "number"
+    },
+    "contrast": {
+     "default": 1.0,
+     "title": "Contrast",
+     "type": "number"
+    },
+    "sharpen": {
+     "default": 0.0,
+     "title": "Sharpen",
+     "type": "number"
+    },
+    "pivot": {
+     "default": 110.0,
+     "title": "Pivot",
+     "type": "number"
+    },
+    "matrix": {
+     "anyOf": [
+      {
+       "items": {
+        "items": {
+         "type": "number"
+        },
+        "type": "array"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Matrix"
+    }
+   },
+   "title": "Look",
+   "type": "object"
+  },
+  "Output": {
+   "properties": {
+    "width": {
+     "title": "Width",
+     "type": "integer"
+    },
+    "height": {
+     "title": "Height",
+     "type": "integer"
+    },
+    "fps": {
+     "title": "Fps",
+     "type": "number"
+    },
+    "duration_frames": {
+     "title": "Duration Frames",
+     "type": "integer"
+    },
+    "color_space": {
+     "const": "bt709",
+     "default": "bt709",
+     "title": "Color Space",
+     "type": "string"
+    }
+   },
+   "required": [
+    "width",
+    "height",
+    "fps",
+    "duration_frames"
+   ],
+   "title": "Output",
+   "type": "object"
+  },
+  "Provenance": {
+   "description": "Origem de uma decisão e quanta confiança merece. `confidence` None = não medida.",
+   "properties": {
+    "by": {
+     "default": "matcher",
+     "enum": [
+      "matcher",
+      "source_align",
+      "reference",
+      "editor",
+      "user",
+      "system",
+      "agent"
+     ],
+     "title": "By",
+     "type": "string"
+    },
+    "confidence": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Confidence"
+    },
+    "method": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Method"
+    },
+    "notes": {
+     "default": [],
+     "items": {
+      "type": "string"
+     },
+     "title": "Notes",
+     "type": "array"
+    }
+   },
+   "title": "Provenance",
+   "type": "object"
+  },
+  "RenderHints": {
+   "description": "Preferências de execução que um motor PODE ignorar (sem mudar o significado do plano).",
+   "properties": {
+    "denoise": {
+     "default": 0.0,
+     "title": "Denoise",
+     "type": "number"
+    },
+    "super_resolution": {
+     "default": false,
+     "title": "Super Resolution",
+     "type": "boolean"
+    }
+   },
+   "title": "RenderHints",
+   "type": "object"
+  },
+  "Source": {
+   "description": "Ficheiro de media. `uri`: caminho local no worker ou chave de armazenamento na plataforma.",
+   "properties": {
+    "uri": {
+     "title": "Uri",
+     "type": "string"
+    },
+    "kind": {
+     "default": "video",
+     "enum": [
+      "video",
+      "image",
+      "audio"
+     ],
+     "title": "Kind",
+     "type": "string"
+    }
+   },
+   "required": [
+    "uri"
+   ],
+   "title": "Source",
+   "type": "object"
+  },
+  "TextItem": {
+   "properties": {
+    "type": {
+     "const": "text",
+     "default": "text",
+     "title": "Type",
+     "type": "string"
+    },
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "text": {
+     "title": "Text",
+     "type": "string"
+    },
+    "at": {
+     "title": "At",
+     "type": "integer"
+    },
+    "duration": {
+     "title": "Duration",
+     "type": "integer"
+    },
+    "x": {
+     "title": "X",
+     "type": "number"
+    },
+    "y": {
+     "title": "Y",
+     "type": "number"
+    },
+    "width": {
+     "title": "Width",
+     "type": "number"
+    },
+    "height": {
+     "title": "Height",
+     "type": "number"
+    },
+    "entry": {
+     "default": "none",
+     "enum": [
+      "pop",
+      "fade",
+      "none"
+     ],
+     "title": "Entry",
+     "type": "string"
+    },
+    "style": {
+     "default": "outline",
+     "enum": [
+      "outline",
+      "box",
+      "watermark"
+     ],
+     "title": "Style",
+     "type": "string"
+    },
+    "icon": {
+     "default": "none",
+     "enum": [
+      "none",
+      "tiktok",
+      "instagram"
+     ],
+     "title": "Icon",
+     "type": "string"
+    },
+    "opacity": {
+     "default": 1.0,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Opacity",
+     "type": "number"
+    },
+    "color": {
+     "anyOf": [
+      {
+       "maxItems": 3,
+       "minItems": 3,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "integer"
+        },
+        {
+         "type": "integer"
+        }
+       ],
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Color"
+    },
+    "box_color": {
+     "default": [
+      0,
+      0,
+      0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "prefixItems": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "integer"
+      },
+      {
+       "type": "integer"
+      }
+     ],
+     "title": "Box Color",
+     "type": "array"
+    },
+    "box_alpha": {
+     "default": 0.65,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Box Alpha",
+     "type": "number"
+    },
+    "provenance": {
+     "$ref": "#/$defs/Provenance"
+    }
+   },
+   "required": [
+    "id",
+    "text",
+    "at",
+    "duration",
+    "x",
+    "y",
+    "width",
+    "height"
+   ],
+   "title": "TextItem",
+   "type": "object"
+  },
+  "TimeMap": {
+   "description": "Que instante da fonte aparece em cada frame do item.\n\nlinear: começa em `src_start_s` e avança pela curva `speed` (1 = tempo real; t em 0..1 ao longo\ndo item). per_frame: `src_frames[k]` (à taxa `src_fps`) para cada frame k do item — speed\nramps, freezes e reverse medidos. Quando per_frame existe, os campos lineares ficam como\naproximação editável.",
+   "properties": {
+    "src_start_s": {
+     "title": "Src Start S",
+     "type": "number"
+    },
+    "speed": {
+     "$ref": "#/$defs/Curve"
+    },
+    "src_fps": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Src Fps"
+    },
+    "src_frames": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "integer"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Src Frames"
+    },
+    "slowmo": {
+     "default": "blend",
+     "enum": [
+      "blend",
+      "hold"
+     ],
+     "title": "Slowmo",
+     "type": "string"
+    }
+   },
+   "required": [
+    "src_start_s"
+   ],
+   "title": "TimeMap",
+   "type": "object"
+  },
+  "Track": {
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "kind": {
+     "enum": [
+      "video",
+      "audio",
+      "text"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "items": {
+     "default": [],
+     "items": {
+      "discriminator": {
+       "mapping": {
+        "audio": "#/$defs/AudioItem",
+        "text": "#/$defs/TextItem",
+        "video": "#/$defs/VideoItem"
+       },
+       "propertyName": "type"
+      },
+      "oneOf": [
+       {
+        "$ref": "#/$defs/VideoItem"
+       },
+       {
+        "$ref": "#/$defs/AudioItem"
+       },
+       {
+        "$ref": "#/$defs/TextItem"
+       }
+      ]
+     },
+     "title": "Items",
+     "type": "array"
+    }
+   },
+   "required": [
+    "id",
+    "kind"
+   ],
+   "title": "Track",
+   "type": "object"
+  },
+  "Transform": {
+   "description": "Enquadramento da fonte no frame de saída.\n\nParamétrico: `zoom` (ln da escala sobre o enquadramento \"cover\", curva em t 0..1), `center`\n(ponto de interesse, fração da fonte), `pan` (deslocamento total do recorte), `flip`.\nPor frame: `warps[k]` é uma afim 2x3 de coordenadas normalizadas da saída para coordenadas\nnormalizadas da fonte — zoom, pan, rotação e shake medidos.",
+   "properties": {
+    "zoom": {
+     "$ref": "#/$defs/Curve"
+    },
+    "center": {
+     "default": [
+      0.5,
+      0.5
+     ],
+     "maxItems": 2,
+     "minItems": 2,
+     "prefixItems": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "title": "Center",
+     "type": "array"
+    },
+    "pan": {
+     "default": [
+      0.0,
+      0.0
+     ],
+     "maxItems": 2,
+     "minItems": 2,
+     "prefixItems": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "title": "Pan",
+     "type": "array"
+    },
+    "flip": {
+     "default": false,
+     "title": "Flip",
+     "type": "boolean"
+    },
+    "warps": {
+     "anyOf": [
+      {
+       "items": {
+        "maxItems": 6,
+        "minItems": 6,
+        "prefixItems": [
+         {
+          "type": "number"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "number"
+         },
+         {
+          "type": "number"
+         }
+        ],
+        "type": "array"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Warps"
+    }
+   },
+   "title": "Transform",
+   "type": "object"
+  },
+  "Transition": {
+   "description": "Transição centrada num ponto de corte. O conteúdo troca em `cut_frame`;\no efeito ocupa [start_frame, end_frame) e é simétrico/assimétrico à volta dele.",
+   "properties": {
+    "type": {
+     "enum": [
+      "cut",
+      "flash",
+      "dip_black",
+      "blur",
+      "glitch",
+      "dissolve"
+     ],
+     "title": "Type",
+     "type": "string"
+    },
+    "start_frame": {
+     "title": "Start Frame",
+     "type": "integer"
+    },
+    "end_frame": {
+     "title": "End Frame",
+     "type": "integer"
+    },
+    "cut_frame": {
+     "title": "Cut Frame",
+     "type": "integer"
+    },
+    "intensity": {
+     "default": 0.0,
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Intensity",
+     "type": "number"
+    },
+    "blur_kind": {
+     "default": "none",
+     "enum": [
+      "none",
+      "horizontal",
+      "vertical",
+      "radial"
+     ],
+     "title": "Blur Kind",
+     "type": "string"
+    },
+    "peak_luma": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Peak Luma"
+    },
+    "beat_offset_ms": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Beat Offset Ms"
+    },
+    "beat_index": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Beat Index"
+    },
+    "direction": {
+     "default": "none",
+     "title": "Direction",
+     "type": "string"
+    },
+    "motion": {
+     "additionalProperties": {
+      "type": "number"
+     },
+     "default": {},
+     "title": "Motion",
+     "type": "object"
+    },
+    "envelope": {
+     "default": [],
+     "items": {
+      "type": "number"
+     },
+     "title": "Envelope",
+     "type": "array"
+    }
+   },
+   "required": [
+    "type",
+    "start_frame",
+    "end_frame",
+    "cut_frame"
+   ],
+   "title": "Transition",
+   "type": "object"
+  },
+  "VideoItem": {
+   "properties": {
+    "type": {
+     "const": "video",
+     "default": "video",
+     "title": "Type",
+     "type": "string"
+    },
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "source": {
+     "title": "Source",
+     "type": "string"
+    },
+    "at": {
+     "title": "At",
+     "type": "integer"
+    },
+    "duration": {
+     "title": "Duration",
+     "type": "integer"
+    },
+    "time": {
+     "$ref": "#/$defs/TimeMap"
+    },
+    "transform": {
+     "$ref": "#/$defs/Transform"
+    },
+    "color": {
+     "$ref": "#/$defs/ColorOps"
+    },
+    "transition_in": {
+     "anyOf": [
+      {
+       "$ref": "#/$defs/Transition"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
+    "audio_volume": {
+     "default": 0.0,
+     "title": "Audio Volume",
+     "type": "number"
+    },
+    "provenance": {
+     "$ref": "#/$defs/Provenance"
+    },
+    "measured": {
+     "anyOf": [
+      {
+       "items": {
+        "type": "boolean"
+       },
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Measured"
+    }
+   },
+   "required": [
+    "id",
+    "source",
+    "at",
+    "duration",
+    "time"
+   ],
+   "title": "VideoItem",
+   "type": "object"
+  }
+ },
+ "properties": {
+  "plan_version": {
+   "default": "1.1",
+   "title": "Plan Version",
+   "type": "string"
+  },
+  "output": {
+   "$ref": "#/$defs/Output"
+  },
+  "sources": {
+   "additionalProperties": {
+    "$ref": "#/$defs/Source"
+   },
+   "title": "Sources",
+   "type": "object"
+  },
+  "tracks": {
+   "items": {
+    "$ref": "#/$defs/Track"
+   },
+   "title": "Tracks",
+   "type": "array"
+  },
+  "effects": {
+   "default": [],
+   "items": {
+    "$ref": "#/$defs/EffectTrack"
+   },
+   "title": "Effects",
+   "type": "array"
+  },
+  "fx_events": {
+   "default": [],
+   "items": {
+    "$ref": "#/$defs/FxEvent"
+   },
+   "title": "Fx Events",
+   "type": "array"
+  },
+  "look": {
+   "$ref": "#/$defs/Look"
+  },
+  "zoom_gain": {
+   "default": 1.0,
+   "title": "Zoom Gain",
+   "type": "number"
+  },
+  "effects_scale": {
+   "default": 1.0,
+   "title": "Effects Scale",
+   "type": "number"
+  },
+  "render_hints": {
+   "$ref": "#/$defs/RenderHints"
+  },
+  "meta": {
+   "additionalProperties": true,
+   "default": {},
+   "title": "Meta",
+   "type": "object"
+  }
+ },
+ "required": [
+  "output",
+  "sources",
+  "tracks"
+ ],
+ "title": "Plan",
+ "type": "object"
+}

@@ -10,6 +10,7 @@ bench/data/
 bench/cache/
 *.tflite
 bench/out/
+bench/synth/
 bench/models/
 teste/1_reference/*
 teste/2_inputs/*
@@ -26,3 +27,4 @@ marketing/demos/
 tests/sql/node_modules/
 tests/sql/package-lock.json
 studio/static/_test/
+bench/real/
